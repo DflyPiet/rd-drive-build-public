@@ -21,7 +21,8 @@ def main() -> None:
     carrier = Path(args.carrier)
     output = Path(args.output)
     text = carrier.read_text(encoding="utf-8-sig")
-    payload = "".join(ch for ch in text if ch in BASE64_CHARS)
+    payload = "".join(ch for ch in text if ch in BASE64_CHARS).rstrip("=")
+    payload += "=" * (-len(payload) % 4)
     raw = base64.b64decode(payload, validate=True)
     digest = hashlib.sha256(raw).hexdigest()
     if digest != EXPECTED_SOURCE_SHA256:
