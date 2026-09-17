@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image
 
-EXPECTED_SOURCE_SHA256 = "f9e49397790490fecbc4ace2c4c529d6b91c84ffea60a361dfcec1495bada607"
+EXPECTED_SOURCE_SHA256 = "5a0d653aa640fed37c45b2e181317a161323bdcbb147ad14eb7a55fac81753f2"
 
 
 def main() -> None:
@@ -26,14 +26,15 @@ def main() -> None:
         source.verify()
     with Image.open(source_path) as source:
         image = source.convert("RGBA")
-        if image.size != (256, 256):
+        if image.size != (128, 128):
             raise SystemExit(f"Unexpected RD icon source size: {image.size}")
         output.mkdir(parents=True, exist_ok=True)
         image.resize((32, 32), Image.Resampling.LANCZOS).save(output / "32x32.png", optimize=True)
-        image.resize((128, 128), Image.Resampling.LANCZOS).save(output / "128x128.png", optimize=True)
-        image.save(output / "128x128@2x.png", optimize=True)
-        image.save(output / "icon.png", optimize=True)
-        image.save(
+        image.save(output / "128x128.png", optimize=True)
+        image256 = image.resize((256, 256), Image.Resampling.LANCZOS)
+        image256.save(output / "128x128@2x.png", optimize=True)
+        image256.save(output / "icon.png", optimize=True)
+        image256.save(
             output / "icon.ico",
             format="ICO",
             sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
