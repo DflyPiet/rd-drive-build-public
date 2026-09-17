@@ -3,11 +3,13 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import string
 from pathlib import Path
 
 from PIL import Image
 
 EXPECTED_SOURCE_SHA256 = "c200e53c142797582b93973d05d30e9c02055f34758c741e26dc62dd2d178e3d"
+BASE64_CHARS = frozenset(string.ascii_letters + string.digits + "+/=")
 
 
 def main() -> None:
@@ -18,7 +20,8 @@ def main() -> None:
 
     carrier = Path(args.carrier)
     output = Path(args.output)
-    payload = "".join(carrier.read_text(encoding="ascii").split())
+    text = carrier.read_text(encoding="utf-8-sig")
+    payload = "".join(ch for ch in text if ch in BASE64_CHARS)
     raw = base64.b64decode(payload, validate=True)
     digest = hashlib.sha256(raw).hexdigest()
     if digest != EXPECTED_SOURCE_SHA256:
