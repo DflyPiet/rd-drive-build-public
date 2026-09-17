@@ -1,0 +1,170 @@
+name: RD Drive 1.0.0 Windows Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout encrypted build carrier
+        uses: actions/checkout@v4
+
+      - name: Reconstruct, verify and decrypt RD Drive source
+        shell: pwsh
+        env:
+          RD_BUILD_KEY: ${{ secrets.RD_BUILD_KEY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $partNames = @(
+            'payload/rd-drive.enc.b64.00',
+            'payload/rd-drive.enc.b64.01',
+            'payload/rd-drive.enc.b64.02',
+            'payload/rd-drive.enc.b64.03',
+            'payload/rd-drive.enc.b64.04',
+            'payload/rd-drive.enc.b64.05',
+            'payload/rd-drive.enc.b64.06a',
+            'payload/rd-drive.enc.b64.06b',
+            'payload/rd-drive.enc.b64.07',
+            'payload/rd-drive.enc.b64.08',
+            'payload/rd-drive.enc.b64.09'
+          )
+          foreach ($part in $partNames) {
+            if (-not (Test-Path $part)) { throw "Missing encrypted payload fragment: $part" }
+          }
+          $b64 = ($partNames | ForEach-Object { Get-Content -Raw $_ }) -join ''
+          [IO.File]::WriteAllBytes('rd-drive-ci-source.enc', [Convert]::FromBase64String($b64))
+
+          $encryptedHash = (Get-FileHash -Algorithm SHA256 'rd-drive-ci-source.enc').Hash.ToLowerInvariant()
+          if ($encryptedHash -ne '0ee2f7ab3567c73c19571a4738d63549c9eeef74a07a63a044013835ad30b6da') {
+            throw "Encrypted payload SHA256 mismatch: $encryptedHash"
+          }
+
+          if ($env:RD_BUILD_KEY -notmatch '^[0-9a-fA-F]{64}$') {
+            throw 'RD_BUILD_KEY secret is missing or invalid.'
+          }
+          [byte[]]$key = for ($i = 0; $i -lt 64; $i += 2) {
+            [Convert]::ToByte($env:RD_BUILD_KEY.Substring($i, 2), 16)
+          }
+
+          [byte[]]$blob = [IO.File]::ReadAllBytes('rd-drive-ci-source.enc')
+          if ($blob.Length -lt 35) { throw 'Encrypted payload is too short.' }
+          $magic = [Text.Encoding]::ASCII.GetString($blob[0..5])
+          if ($magic -ne 'RDENC1') { throw "Invalid encrypted payload magic: $magic" }
+          [byte[]]$nonce = $blob[6..17]
+          [byte[]]$tag = $blob[18..33]
+          [byte[]]$cipher = $blob[34..($blob.Length - 1)]
+          [byte[]]$plain = New-Object byte[] $cipher.Length
+          [byte[]]$aad = [Text.Encoding]::ASCII.GetBytes('RD-DRIVE-CI-v1')
+
+          $aes = [System.Security.Cryptography.AesGcm]::new($key, 16)
+          try {
+            $aes.Decrypt($nonce, $cipher, $tag, $plain, $aad)
+          }
+          finally {
+            $aes.Dispose()
+            [Array]::Clear($key, 0, $key.Length)
+          }
+
+          [IO.File]::WriteAllBytes('rd-drive-ci-source.zip', $plain)
+          [Array]::Clear($plain, 0, $plain.Length)
+          $sourceHash = (Get-FileHash -Algorithm SHA256 'rd-drive-ci-source.zip').Hash.ToLowerInvariant()
+          if ($sourceHash -ne 'dfe1cdf5f6b9fdf30cca6b76f9b984fc03ba1c58858476ea980232f3e04249c8') {
+            throw "Decrypted source SHA256 mismatch: $sourceHash"
+          }
+
+          New-Item -ItemType Directory -Force -Path 'source' | Out-Null
+          Expand-Archive -Path 'rd-drive-ci-source.zip' -DestinationPath 'source' -Force
+          Remove-Item 'rd-drive-ci-source.enc','rd-drive-ci-source.zip' -Force
+          Write-Host 'Encrypted source verified and decrypted successfully.'
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Verify Rust MSVC toolchain
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          rustc --version
+          cargo --version
+          rustup default stable
+          rustup target add x86_64-pc-windows-msvc
+
+      - name: Install Python test dependency
+        working-directory: source
+        run: python -m pip install --disable-pip-version-check pytest
+
+      - name: Install frontend dependencies
+        working-directory: source
+        run: npm install
+
+      - name: TypeScript domain tests
+        working-directory: source
+        run: npm test
+
+      - name: Python contract and schema tests
+        working-directory: source
+        run: python -m pytest tests -q
+
+      - name: Frontend production build
+        working-directory: source
+        run: npm run build
+
+      - name: Rust tests
+        working-directory: source
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets
+
+      - name: Build Tauri Windows x64 release
+        working-directory: source
+        run: npm run tauri build -- --target x86_64-pc-windows-msvc
+
+      - name: Collect and hash Windows artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $PWD 'release-artifacts'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+
+          $rawExe = 'source/src-tauri/target/x86_64-pc-windows-msvc/release/rd-drive.exe'
+          if (Test-Path $rawExe) {
+            Copy-Item $rawExe -Destination (Join-Path $out 'RD-Drive.exe')
+          }
+
+          $bundleRoot = 'source/src-tauri/target/x86_64-pc-windows-msvc/release/bundle'
+          if (Test-Path $bundleRoot) {
+            Get-ChildItem -Path $bundleRoot -Recurse -File -Include '*.exe','*.msi' | ForEach-Object {
+              Copy-Item $_.FullName -Destination $out
+            }
+          }
+
+          $files = Get-ChildItem -Path $out -File
+          if (-not $files) { throw 'No Windows release artifacts were produced.' }
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash -Algorithm SHA256 -Path $file.FullName).Hash.ToLowerInvariant()
+            "$hash  $($file.Name)"
+          }
+          $lines | Set-Content -Path (Join-Path $out 'SHA256SUMS.txt') -Encoding ascii
+          Get-ChildItem $out | Format-Table Name,Length
+
+      - name: Upload RD Drive Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: RD-Drive-1.0.0-Windows
+          path: release-artifacts/*
+          if-no-files-found: error
+          retention-days: 7
