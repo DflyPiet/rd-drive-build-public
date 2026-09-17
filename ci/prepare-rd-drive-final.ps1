@@ -24,15 +24,25 @@ if ($text -notmatch 'glass_pumpkin = "=2\.0\.0-rc0"') {
 }
 Set-Content -Path $manifest -Value $text -Encoding utf8 -NoNewline
 
-$iconSource = '..\ci\icon.ico.b64'
-if (-not (Test-Path $iconSource)) { throw 'Verified icon carrier is missing.' }
-New-Item -ItemType Directory -Force -Path 'src-tauri/icons' | Out-Null
-$iconPath = Join-Path $sourceRoot 'src-tauri/icons/icon.ico'
-[IO.File]::WriteAllBytes($iconPath, [Convert]::FromBase64String((Get-Content -Raw $iconSource)))
-$iconHash = (Get-FileHash -Algorithm SHA256 $iconPath).Hash.ToLowerInvariant()
-if ($iconHash -ne 'ab204293fc42d20bbf1715e76ae56c72fe8e13eac5f7b165c2eb14bb1c91e6f9') {
-  throw "RD Drive Windows icon SHA256 mismatch: $iconHash"
-}
+$iconCarrier = Join-Path $repoRoot 'ci\rd-drive-icon-source.jpg.b64'
+$iconOutput = Join-Path $sourceRoot 'src-tauri\icons'
+if (-not (Test-Path $iconCarrier)) { throw 'Uploaded RD Drive icon artwork carrier is missing.' }
+& python (Join-Path $repoRoot 'ci\make-rd-icon.py') --carrier $iconCarrier --output $iconOutput
+if ($LASTEXITCODE -ne 0) { throw 'RD Drive icon generation from uploaded artwork failed.' }
+$iconPath = Join-Path $iconOutput 'icon.ico'
+if (-not (Test-Path $iconPath)) { throw 'Generated RD Drive icon.ico is missing.' }
+
+$configPath = 'src-tauri/tauri.conf.json'
+$config = Get-Content -Raw $configPath | ConvertFrom-Json
+$config.bundle | Add-Member -NotePropertyName icon -NotePropertyValue @(
+  'icons/32x32.png',
+  'icons/128x128.png',
+  'icons/128x128@2x.png',
+  'icons/icon.ico'
+) -Force
+$config | ConvertTo-Json -Depth 100 | Set-Content -Path $configPath -Encoding utf8
+$configCheck = Get-Content -Raw $configPath
+if (-not $configCheck.Contains('icons/icon.ico')) { throw 'Tauri bundle icon configuration was not applied.' }
 
 $telegramPath = 'src-tauri/src/telegram.rs'
 $telegram = Get-Content -Raw $telegramPath
