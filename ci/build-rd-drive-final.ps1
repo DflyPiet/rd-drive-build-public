@@ -53,12 +53,13 @@ New-Item -ItemType Directory -Force -Path 'source/.github/workflows' | Out-Null
 Copy-Item '.github/workflows/windows-release-v3.yml' -Destination 'source/.github/workflows/windows-release.yml' -Force
 Remove-Item 'rd-drive-ci-source.enc','rd-drive-ci-source.zip' -Force
 
+python -m pip install --disable-pip-version-check pytest pillow
+if ($LASTEXITCODE -ne 0) { throw 'Python build dependencies installation failed.' }
+
 Push-Location 'source'
 try {
   & '..\ci\prepare-rd-drive-final.ps1'
 
-  python -m pip install --disable-pip-version-check pytest
-  if ($LASTEXITCODE -ne 0) { throw 'pytest installation failed.' }
   npm install
   if ($LASTEXITCODE -ne 0) { throw 'npm install failed.' }
   npm test
@@ -117,7 +118,8 @@ $note = @(
   'Alle RD-Drive-Programmdaten werden im Ordner "RDDriveData" direkt neben RD-Drive-Portable.exe gespeichert.',
   'Zum vollständigen Entfernen der portablen Ausgabe genügt es, RD-Drive-Portable.exe und den zugehörigen Ordner RDDriveData zu löschen.',
   '',
-  'Wichtig: Verschiebe die EXE am besten vor dem ersten Start in einen eigenen Ordner, z. B. D:\RD Drive Portable\.'
+  'Die Portable-EXE ist als Windows-GUI-Anwendung gebaut und darf kein CMD-Fenster öffnen.',
+  'Das Windows-App-Icon basiert auf dem vom Nutzer hochgeladenen RD-Drive-Motiv.'
 )
 $note | Set-Content -Path (Join-Path $portableDir 'PORTABLE-HINWEIS.txt') -Encoding utf8
 
