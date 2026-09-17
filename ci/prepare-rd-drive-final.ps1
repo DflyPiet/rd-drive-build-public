@@ -24,7 +24,7 @@ if ($text -notmatch 'glass_pumpkin = "=2\.0\.0-rc0"') {
 }
 Set-Content -Path $manifest -Value $text -Encoding utf8 -NoNewline
 
-$iconCarrier = Join-Path $repoRoot 'ci\rd-icon-source-q65.b64'
+$iconCarrier = Join-Path $repoRoot 'ci\rd-icon-source-128-q65.b64'
 $iconSource = Join-Path $env:RUNNER_TEMP 'rd-drive-icon-source.jpg'
 $iconOutput = Join-Path $sourceRoot 'src-tauri\icons'
 if (-not (Test-Path $iconCarrier)) { throw 'RD Drive icon carrier is missing.' }
@@ -36,7 +36,7 @@ catch {
   throw "RD Drive icon carrier decode failed: $($_.Exception.Message)"
 }
 $iconHash = (Get-FileHash -Algorithm SHA256 $iconSource).Hash.ToLowerInvariant()
-if ($iconHash -ne 'f9e49397790490fecbc4ace2c4c529d6b91c84ffea60a361dfcec1495bada607') {
+if ($iconHash -ne '5a0d653aa640fed37c45b2e181317a161323bdcbb147ad14eb7a55fac81753f2') {
   throw "RD Drive icon source hash mismatch after decode: $iconHash"
 }
 & python (Join-Path $repoRoot 'ci\make-rd-icon.py') --source $iconSource --output $iconOutput
