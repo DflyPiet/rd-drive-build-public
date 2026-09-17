@@ -8,7 +8,7 @@ from pathlib import Path
 
 from PIL import Image
 
-EXPECTED_SOURCE_SHA256 = "c200e53c142797582b93973d05d30e9c02055f34758c741e26dc62dd2d178e3d"
+EXPECTED_SOURCE_SHA256 = "3dd310da140ee2c4f769e7ca0708fc41c9bd81ddf0bc2b5cfc99f72b8c4f869d"
 BASE64_CHARS = frozenset(string.ascii_letters + string.digits + "+/=")
 
 
@@ -32,6 +32,8 @@ def main() -> None:
     source_jpg = output / "rd-drive-icon-source.jpg"
     source_jpg.write_bytes(raw)
 
+    with Image.open(source_jpg) as source:
+        source.verify()
     with Image.open(source_jpg) as source:
         image = source.convert("RGBA")
         image.resize((32, 32), Image.Resampling.LANCZOS).save(output / "32x32.png", optimize=True)
