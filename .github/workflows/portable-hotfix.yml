@@ -1,0 +1,51 @@
+name: RD Drive Portable Hotfix
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout encrypted build carrier
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Verify Rust MSVC toolchain
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          rustup default stable
+          rustup target add x86_64-pc-windows-msvc
+          rustc --version
+          cargo --version
+
+      - name: Build corrected portable RD Drive
+        shell: pwsh
+        env:
+          RD_BUILD_KEY: ${{ secrets.RD_BUILD_KEY }}
+        run: .\ci\build-portable-hotfix.ps1
+
+      - name: Upload corrected portable
+        uses: actions/upload-artifact@v4
+        with:
+          name: RD-Drive-Portable-1.0.0-HOTFIX
+          path: portable-hotfix-artifact/**/*
+          if-no-files-found: error
+          retention-days: 7
