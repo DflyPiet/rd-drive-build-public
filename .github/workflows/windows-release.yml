@@ -88,6 +88,25 @@ jobs:
           Remove-Item 'rd-drive-ci-source.enc','rd-drive-ci-source.zip' -Force
           Write-Host 'Encrypted source verified and decrypted successfully.'
 
+      - name: Pin grammers compatible glass_pumpkin release
+        shell: pwsh
+        working-directory: source
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $manifest = 'src-tauri/Cargo.toml'
+          $text = Get-Content -Raw $manifest
+          if ($text -notmatch 'glass_pumpkin = "=2\.0\.0-rc0"') {
+            $needle = 'grammers-stringsession = "0.1.1"'
+            if ($text -notmatch [regex]::Escape($needle)) {
+              throw 'Could not locate grammers dependency anchor in Cargo.toml.'
+            }
+            $text = $text.Replace($needle, $needle + "`r`nglass_pumpkin = `"=2.0.0-rc0`"")
+            Set-Content -Path $manifest -Value $text -Encoding utf8 -NoNewline
+          }
+          if ((Get-Content -Raw $manifest) -notmatch 'glass_pumpkin = "=2\.0\.0-rc0"') {
+            throw 'glass_pumpkin compatibility pin was not applied.'
+          }
+
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
