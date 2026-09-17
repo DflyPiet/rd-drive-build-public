@@ -83,6 +83,8 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path 'source' | Out-Null
           Expand-Archive -Path 'rd-drive-ci-source.zip' -DestinationPath 'source' -Force
+          New-Item -ItemType Directory -Force -Path 'source/.github/workflows' | Out-Null
+          Copy-Item '.github/workflows/windows-release.yml' -Destination 'source/.github/workflows/windows-release.yml' -Force
           Remove-Item 'rd-drive-ci-source.enc','rd-drive-ci-source.zip' -Force
           Write-Host 'Encrypted source verified and decrypted successfully.'
 
