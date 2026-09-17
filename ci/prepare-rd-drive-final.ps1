@@ -17,6 +17,11 @@ if ($text -notmatch '(?m)^\[features\]\s*$') {
 }
 if ($text -notmatch '(?m)^portable\s*=\s*\[\]\s*$') { throw 'Portable Cargo feature was not added.' }
 
+if ($text.Contains('tauri = { version = "2", features = [] }')) {
+  $text = $text.Replace('tauri = { version = "2", features = [] }', 'tauri = { version = "2", features = ["protocol-asset"] }')
+}
+if ($text -notmatch 'tauri\s*=\s*\{[^\r\n]*protocol-asset') { throw 'Tauri protocol-asset feature was not enabled.' }
+
 if ($text -notmatch 'glass_pumpkin = "=2\.0\.0-rc0"') {
   $needle = 'grammers-stringsession = "0.1.1"'
   if (-not $text.Contains($needle)) { throw 'Could not locate grammers dependency anchor.' }
