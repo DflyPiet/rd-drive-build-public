@@ -1,4 +1,8 @@
 $ErrorActionPreference = 'Stop'
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$sourceRoot = Join-Path $repoRoot 'source'
+Push-Location $sourceRoot
+try {
 
 $manifest = 'src-tauri/Cargo.toml'
 $text = Get-Content -Raw $manifest
@@ -91,3 +95,7 @@ if (-not $commandsCheck.Contains('RDDriveData')) { throw 'Portable RDDriveData s
 if (-not $commandsCheck.Contains('#[cfg(feature = "portable")]')) { throw 'Portable app_root cfg was not applied.' }
 if (-not $commandsCheck.Contains('#[cfg(not(feature = "portable"))]')) { throw 'Installed app_root cfg was not preserved.' }
 if (-not $commandsCheck.Contains('app.path().app_data_dir()')) { throw 'Installed AppData storage path was not preserved.' }
+}
+finally {
+  Pop-Location
+}
