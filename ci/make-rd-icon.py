@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image
 
-EXPECTED_SOURCE_SHA256 = "98f842147e47543539736ec54f9b19102f062f8318340acba815e0bbf285b1d2"
+EXPECTED_SOURCE_SHA256 = "f9e49397790490fecbc4ace2c4c529d6b91c84ffea60a361dfcec1495bada607"
 
 
 def main() -> None:
