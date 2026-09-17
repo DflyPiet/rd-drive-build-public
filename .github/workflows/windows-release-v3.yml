@@ -47,6 +47,53 @@ jobs:
           RD_BUILD_KEY: ${{ secrets.RD_BUILD_KEY }}
         run: .\ci\build-rd-drive-final.ps1
 
+      - name: Rebuild true portable with embedded frontend
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $portableConfig = @{
+            build = @{
+              devUrl = $null
+              frontendDist = '../dist'
+              features = @('portable')
+            }
+            bundle = @{
+              active = $false
+            }
+          } | ConvertTo-Json -Depth 10
+          $portableConfig | Set-Content -Path 'source/src-tauri/tauri.portable.conf.json' -Encoding utf8
+
+          Push-Location 'source'
+          try {
+            npm run tauri build -- --target x86_64-pc-windows-msvc --no-bundle --config src-tauri/tauri.portable.conf.json
+            if ($LASTEXITCODE -ne 0) { throw 'Tauri portable release build failed.' }
+          }
+          finally {
+            Pop-Location
+          }
+
+          $portableRaw = 'source/src-tauri/target/x86_64-pc-windows-msvc/release/rd-drive.exe'
+          if (-not (Test-Path $portableRaw)) { throw 'Tauri portable EXE was not produced.' }
+          & '.\ci\verify-rd-drive-pe.ps1' -Path $portableRaw
+
+          $bytes = [IO.File]::ReadAllBytes($portableRaw)
+          $ascii = [Text.Encoding]::ASCII.GetString($bytes)
+          if ($ascii.Contains('http://localhost:1420')) {
+            throw 'Portable binary still contains the development localhost URL.'
+          }
+
+          Copy-Item $portableRaw -Destination 'release-artifacts-final/Portable/RD-Drive-Portable.exe' -Force
+
+          $out = Join-Path $PWD 'release-artifacts-final'
+          $files = Get-ChildItem -Path $out -Recurse -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' }
+          $lines = foreach ($file in $files) {
+            $relative = [IO.Path]::GetRelativePath($out, $file.FullName)
+            $hash = (Get-FileHash -Algorithm SHA256 -Path $file.FullName).Hash.ToLowerInvariant()
+            "$hash  $relative"
+          }
+          $lines | Set-Content -Path (Join-Path $out 'SHA256SUMS.txt') -Encoding ascii
+
       - name: Upload RD Drive Windows final artifacts
         uses: actions/upload-artifact@v4
         with:
