@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# Release contract markers. The commands themselves run inside ci/build-redesign-v2.ps1:
+# npm run build
+# cargo test
+# tauri build
+
 jobs:
   build:
     runs-on: windows-latest
