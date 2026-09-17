@@ -24,10 +24,10 @@ if ($text -notmatch 'glass_pumpkin = "=2\.0\.0-rc0"') {
 }
 Set-Content -Path $manifest -Value $text -Encoding utf8 -NoNewline
 
-$iconCarrier = Join-Path $repoRoot 'ci\rd-drive-icon-source.jpg.b64'
+$iconSource = Join-Path $repoRoot 'ci\rd-drive-icon-source.jpg'
 $iconOutput = Join-Path $sourceRoot 'src-tauri\icons'
-if (-not (Test-Path $iconCarrier)) { throw 'Uploaded RD Drive icon artwork carrier is missing.' }
-& python (Join-Path $repoRoot 'ci\make-rd-icon.py') --carrier $iconCarrier --output $iconOutput
+if (-not (Test-Path $iconSource)) { throw 'Uploaded RD Drive icon artwork is missing.' }
+& python (Join-Path $repoRoot 'ci\make-rd-icon.py') --source $iconSource --output $iconOutput
 if ($LASTEXITCODE -ne 0) { throw 'RD Drive icon generation from uploaded artwork failed.' }
 $iconPath = Join-Path $iconOutput 'icon.ico'
 if (-not (Test-Path $iconPath)) { throw 'Generated RD Drive icon.ico is missing.' }

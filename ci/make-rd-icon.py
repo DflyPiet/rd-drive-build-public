@@ -1,45 +1,38 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
-import string
 from pathlib import Path
 
 from PIL import Image
 
-EXPECTED_SOURCE_SHA256 = "3dd310da140ee2c4f769e7ca0708fc41c9bd81ddf0bc2b5cfc99f72b8c4f869d"
-BASE64_CHARS = frozenset(string.ascii_letters + string.digits + "+/=")
+EXPECTED_SOURCE_SHA256 = "2f6410140a7907c34675e1b2d2646f9e51eeb184c04a39bd672fcadd2acb5ab4"
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--carrier", required=True)
+    parser.add_argument("--source", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
-    carrier = Path(args.carrier)
+    source_path = Path(args.source)
     output = Path(args.output)
-    text = carrier.read_text(encoding="utf-8-sig")
-    payload = "".join(ch for ch in text if ch in BASE64_CHARS).rstrip("=")
-    payload += "=" * (-len(payload) % 4)
-    raw = base64.b64decode(payload, validate=True)
+    raw = source_path.read_bytes()
     digest = hashlib.sha256(raw).hexdigest()
     if digest != EXPECTED_SOURCE_SHA256:
         raise SystemExit(f"RD icon source SHA256 mismatch: {digest}")
 
-    output.mkdir(parents=True, exist_ok=True)
-    source_jpg = output / "rd-drive-icon-source.jpg"
-    source_jpg.write_bytes(raw)
-
-    with Image.open(source_jpg) as source:
+    with Image.open(source_path) as source:
         source.verify()
-    with Image.open(source_jpg) as source:
+    with Image.open(source_path) as source:
         image = source.convert("RGBA")
+        if image.size != (256, 256):
+            raise SystemExit(f"Unexpected RD icon source size: {image.size}")
+        output.mkdir(parents=True, exist_ok=True)
         image.resize((32, 32), Image.Resampling.LANCZOS).save(output / "32x32.png", optimize=True)
         image.resize((128, 128), Image.Resampling.LANCZOS).save(output / "128x128.png", optimize=True)
-        image.resize((256, 256), Image.Resampling.LANCZOS).save(output / "128x128@2x.png", optimize=True)
-        image.resize((256, 256), Image.Resampling.LANCZOS).save(output / "icon.png", optimize=True)
+        image.save(output / "128x128@2x.png", optimize=True)
+        image.save(output / "icon.png", optimize=True)
         image.save(
             output / "icon.ico",
             format="ICO",
