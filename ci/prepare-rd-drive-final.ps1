@@ -117,6 +117,22 @@ if (-not $commandsCheck.Contains('RDDriveData')) { throw 'Portable RDDriveData s
 if (-not $commandsCheck.Contains('#[cfg(feature = "portable")]')) { throw 'Portable app_root cfg was not applied.' }
 if (-not $commandsCheck.Contains('#[cfg(not(feature = "portable"))]')) { throw 'Installed app_root cfg was not preserved.' }
 if (-not $commandsCheck.Contains('app.path().app_data_dir()')) { throw 'Installed AppData storage path was not preserved.' }
+
+# TypeScript production-compile fixes for the clean-room browser redesign.
+Set-Content -Path 'src/vite-env.d.ts' -Value '/// <reference types="vite/client" />' -Encoding utf8
+$driveDomainPath = 'src/domain/drive.ts'
+$driveDomain = Get-Content -Raw $driveDomainPath
+$oldFilter = 'export function filterDriveItems(items: DriveItemView[], query: string): DriveItemView[] {'
+$newFilter = 'export function filterDriveItems<T extends DriveItemView>(items: T[], query: string): T[] {'
+if ($driveDomain.Contains($oldFilter)) { $driveDomain = $driveDomain.Replace($oldFilter, $newFilter) }
+$oldSort = 'export function sortDriveItems(items: DriveItemView[], sort: DriveSort, direction: SortDirection): DriveItemView[] {'
+$newSort = 'export function sortDriveItems<T extends DriveItemView>(items: T[], sort: DriveSort, direction: SortDirection): T[] {'
+if ($driveDomain.Contains($oldSort)) { $driveDomain = $driveDomain.Replace($oldSort, $newSort) }
+Set-Content -Path $driveDomainPath -Value $driveDomain -Encoding utf8 -NoNewline
+$driveDomainCheck = Get-Content -Raw $driveDomainPath
+if (-not $driveDomainCheck.Contains($newFilter)) { throw 'Generic drive filter type preservation fix was not applied.' }
+if (-not $driveDomainCheck.Contains($newSort)) { throw 'Generic drive sort type preservation fix was not applied.' }
+if (-not (Test-Path 'src/vite-env.d.ts')) { throw 'Vite asset type declaration was not created.' }
 }
 finally {
   Pop-Location
