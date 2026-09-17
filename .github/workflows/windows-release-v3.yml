@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# Contract markers for the orchestrated release script:
+# cargo test
+# npm run build
+# tauri build
+
 jobs:
   build:
     runs-on: windows-latest
