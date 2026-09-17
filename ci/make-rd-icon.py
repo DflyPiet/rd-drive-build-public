@@ -18,7 +18,8 @@ def main() -> None:
 
     carrier = Path(args.carrier)
     output = Path(args.output)
-    raw = base64.b64decode(carrier.read_text(encoding="ascii").strip(), validate=True)
+    payload = "".join(carrier.read_text(encoding="ascii").split())
+    raw = base64.b64decode(payload, validate=True)
     digest = hashlib.sha256(raw).hexdigest()
     if digest != EXPECTED_SOURCE_SHA256:
         raise SystemExit(f"RD icon source SHA256 mismatch: {digest}")
