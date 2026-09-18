@@ -1,0 +1,80 @@
+param(
+  [Parameter(Mandatory = $true)]
+  [string]$SourceRoot
+)
+
+$ErrorActionPreference = 'Stop'
+
+$commandsPath = Join-Path $SourceRoot 'src-tauri/src/commands.rs'
+$libPath = Join-Path $SourceRoot 'src-tauri/src/lib.rs'
+$mediaPath = Join-Path $SourceRoot 'src-tauri/src/media.rs'
+$configPath = Join-Path $SourceRoot 'src-tauri/tauri.conf.json'
+
+$commands = Get-Content -Raw $commandsPath
+if ($commands -notmatch 'pub async fn media_preview_prepare') {
+  $anchor = @'
+#[tauri::command]
+pub fn media_master_hls(
+'@
+  $alias = @'
+#[tauri::command]
+pub async fn media_preview_prepare(
+    app: AppHandle,
+    sessions: State<'_, VaultSessionStore>,
+    telegram: State<'_, crate::telegram::TelegramClientStore>,
+    profile_id: String,
+    item_id: String,
+) -> Result<media::PreparedMedia, String> {
+    media_prepare_preview(app, sessions, telegram, profile_id, item_id).await
+}
+
+#[tauri::command]
+pub fn media_master_hls(
+'@
+  if (-not $commands.Contains($anchor)) { throw 'Could not locate media_master_hls insertion point.' }
+  $commands = $commands.Replace($anchor, $alias)
+  Set-Content -LiteralPath $commandsPath -Value $commands -Encoding utf8
+}
+
+$lib = Get-Content -Raw $libPath
+if ($lib -notmatch 'commands::media_preview_prepare') {
+  $lib = $lib.Replace('            commands::media_prepare_preview,', "            commands::media_prepare_preview,`r`n            commands::media_preview_prepare,")
+  Set-Content -LiteralPath $libPath -Value $lib -Encoding utf8
+}
+
+$media = Get-Content -Raw $mediaPath
+$cachePattern = '(?s)pub fn cache_root\(root: &Path, profile_id: &str\) -> Result<PathBuf, AppError> \{.*?\r?\n\}\r?\n\r?\nfn original_dir'
+$cacheReplacement = @'
+pub fn cache_root(root: &Path, profile_id: &str) -> Result<PathBuf, AppError> {
+    // Reuse the profile-path validator, but keep browser-readable previews in a
+    // narrowly scoped temporary directory instead of exposing all application data.
+    let _ = paths::profile_dir(root, profile_id)?;
+    let path = std::env::temp_dir()
+        .join("RDDrivePreview")
+        .join(profile_id)
+        .join(MEDIA_DIR);
+    fs::create_dir_all(&path)?;
+    Ok(path)
+}
+
+fn original_dir
+'@
+$updatedMedia = [regex]::Replace($media, $cachePattern, $cacheReplacement, 1)
+if ($updatedMedia -eq $media) { throw 'Could not replace media cache root.' }
+Set-Content -LiteralPath $mediaPath -Value $updatedMedia -Encoding utf8
+
+$config = Get-Content -Raw $configPath | ConvertFrom-Json
+$config.app.security.assetProtocol.enable = $true
+$config.app.security.assetProtocol.scope = @('$TEMP/RDDrivePreview/**')
+$config.app.security.csp = "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://asset.localhost"
+$config | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $configPath -Encoding utf8
+
+$verifyCommands = Get-Content -Raw $commandsPath
+$verifyLib = Get-Content -Raw $libPath
+$verifyMedia = Get-Content -Raw $mediaPath
+$verifyConfig = Get-Content -Raw $configPath
+if ($verifyCommands -notmatch 'pub async fn media_preview_prepare') { throw 'Legacy media preview compatibility command was not added.' }
+if ($verifyCommands -notmatch 'materialize_drive_item') { throw 'Verified Telegram materialization path is missing from media preview.' }
+if ($verifyLib -notmatch 'commands::media_preview_prepare') { throw 'Legacy media preview compatibility command is not registered.' }
+if ($verifyMedia -notmatch 'temp_dir\(\).*RDDrivePreview') { throw 'Media cache is not rooted in the restricted temporary preview directory.' }
+if ($verifyConfig -notmatch '\$TEMP/RDDrivePreview/\*\*') { throw 'Tauri asset protocol is not restricted to the temporary preview directory.' }
