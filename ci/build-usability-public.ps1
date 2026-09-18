@@ -92,6 +92,25 @@ fn app_root(app: &AppHandle) -> Result<PathBuf, String> {
 
 python .\ci\make-rd-icons.py
 if ($LASTEXITCODE -ne 0) { throw 'RD Drive icon generation failed.' }
+if (-not (Test-Path 'source/src/assets/rd-drive-icon.jpg')) { throw 'Frontend RD Drive icon missing after generation.' }
+@'
+declare module '*.jpg' {
+  const src: string;
+  export default src;
+}
+declare module '*.jpeg' {
+  const src: string;
+  export default src;
+}
+declare module '*.png' {
+  const src: string;
+  export default src;
+}
+declare module '*.ico' {
+  const src: string;
+  export default src;
+}
+'@ | Set-Content -Path 'source/src/assets.d.ts' -Encoding utf8
 $configPath = 'source/src-tauri/tauri.conf.json'
 $config = Get-Content -Raw $configPath | ConvertFrom-Json
 $config.bundle | Add-Member -NotePropertyName icon -NotePropertyValue @('icons/icon.ico') -Force
