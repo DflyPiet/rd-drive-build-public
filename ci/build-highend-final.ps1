@@ -96,6 +96,7 @@ Remove-Item 'rd-drive-browser-backend.enc','rd-drive-browser-backend.zip' -Force
 # 2c) Apply the independently encrypted high-end media/archive patch.
 & '.\ci\apply-highend-patch.ps1' -SourceRoot (Resolve-Path 'source')
 & '.\ci\apply-easy-ui-patch.ps1' -SourceRoot (Resolve-Path 'source')
+& '.\ci\apply-professional-patch.ps1' -SourceRoot (Resolve-Path 'source')
 & '.\ci\apply-final-media-compat.ps1' -SourceRoot (Resolve-Path 'source')
 
 # Contract marker expected by the source test suite.
@@ -177,8 +178,8 @@ if ($portableAscii.Contains('http://localhost:1420')) { throw 'Portable high-end
 Copy-Item $portableRaw -Destination (Join-Path $portableDir 'RD-Drive-Portable.exe') -Force
 
 @(
-  'RD Drive 1.0.0 - Easy Workspace High-End Final',
-  'Clean-room RD Drive UI with one-time setup, fixed dashboard pages, integrated browser, media and archive workflows.',
+  'RD Drive 1.0.0 - Professional Easy Workspace Final',
+  'Clean-room RD Drive UI with one-time setup, fixed dashboard pages, professional Telegram direct sharing, revocable t.me link publishing, complete recursive trash lifecycle, and integrated browser, media and archive workflows.',
   'Portable data directory: RDDriveData next to RD-Drive-Portable.exe.',
   'Integrated image, PDF, audio and video preview uses a verified temporary preview cache with direct, fMP4 and HLS fallbacks.',
   'ZIP, RAR and 7z archives support protected listing and controlled extraction in the RD Drive viewer.'
