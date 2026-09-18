@@ -24,6 +24,10 @@ let normalized_name = name.replace('\\', "/");
   Set-Content -LiteralPath $archivePath -Value $updatedArchive -Encoding utf8
 }
 
+$archive = Get-Content -Raw $archivePath
+$archive = $archive.Replace('.unwrap_or("entry.bin");', '.unwrap_or("");')
+Set-Content -LiteralPath $archivePath -Value $archive -Encoding utf8
+
 $commands = Get-Content -Raw $commandsPath
 if ($commands -notmatch 'pub async fn media_preview_prepare') {
   $alias = @'
