@@ -138,6 +138,22 @@ try {
     }
   }
 
+
+  # Apply two deterministic UI regression fixes found by the Windows contract suite.
+  $appPath = Join-Path $SourceRoot 'src/App.tsx'
+  $appSource = Get-Content -Raw $appPath
+  $appSource = $appSource.Replace("const [active, setActive] = useState('Übersicht');", "const [active, setActive] = useState('Dateien');")
+  $appSource = $appSource.Replace('<div className="brand-mark" aria-hidden="true">RD</div>', '<img className="brand-mark" src={new URL(''./assets/rd-drive-icon.png'', import.meta.url).href} alt="" aria-hidden="true" />')
+  Set-Content -LiteralPath $appPath -Value $appSource -Encoding utf8
+
+  $appVerify = Get-Content -Raw $appPath
+  if ($appVerify -notmatch "useState\('Dateien'\)") {
+    throw 'Drive is not configured as the default surface.'
+  }
+  if ($appVerify -notmatch 'rd-drive-icon\.png') {
+    throw 'RD Drive artwork is not wired as the browser brand asset.'
+  }
+
   $cargo = Get-Content -Raw (Join-Path $SourceRoot 'src-tauri/Cargo.toml')
   if ($cargo -notmatch 'sevenz-rust2\s*=\s*"0\.21\.5"') {
     throw 'Patched Cargo.toml does not contain sevenz-rust2 0.21.5.'
