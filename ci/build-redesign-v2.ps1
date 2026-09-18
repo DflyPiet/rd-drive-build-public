@@ -64,6 +64,35 @@ if ($overlayPlainHash -ne '073f56f3a4db40114e371fc1ddcc7a40319f7aafdaa4c10461c16
 Expand-Archive -Path 'rd-drive-redesign.zip' -DestinationPath source -Force
 Remove-Item 'rd-drive-redesign.enc','rd-drive-redesign.zip' -Force
 
+# 2b) Apply the encrypted browser-backend supplement omitted from the media overlay.
+$backendCarrier = 'redesign-v2/browser-backend-fix.b64'
+if (-not (Test-Path $backendCarrier)) { throw "Missing browser backend supplement: $backendCarrier" }
+$backendB64 = (Get-Content -Raw $backendCarrier) -replace '\\s',''
+[IO.File]::WriteAllBytes('rd-drive-browser-backend.enc', [Convert]::FromBase64String($backendB64))
+$backendEncryptedHash = (Get-FileHash -Algorithm SHA256 'rd-drive-browser-backend.enc').Hash.ToLowerInvariant()
+if ($backendEncryptedHash -ne 'fc25070e915a8634448cb71facbaf3d28b5ff57397ae27b8eaee8b532432bfc6') {
+  throw "Browser backend encrypted SHA256 mismatch: $backendEncryptedHash"
+}
+[byte[]]$backendBlob = [IO.File]::ReadAllBytes('rd-drive-browser-backend.enc')
+if ([Text.Encoding]::ASCII.GetString($backendBlob[0..4]) -ne 'RDBE1') { throw 'Invalid browser backend encrypted magic.' }
+[byte[]]$backendNonce = $backendBlob[5..16]
+[byte[]]$backendTag = $backendBlob[17..32]
+[byte[]]$backendCipher = $backendBlob[33..($backendBlob.Length - 1)]
+[byte[]]$backendPlain = New-Object byte[] $backendCipher.Length
+[byte[]]$backendAad = [Text.Encoding]::ASCII.GetBytes('RD-DRIVE-BROWSER-BACKEND-v1')
+[byte[]]$key3 = Get-KeyBytes
+$aes3 = [System.Security.Cryptography.AesGcm]::new($key3, 16)
+try { $aes3.Decrypt($backendNonce, $backendCipher, $backendTag, $backendPlain, $backendAad) }
+finally { $aes3.Dispose(); [Array]::Clear($key3, 0, $key3.Length) }
+[IO.File]::WriteAllBytes('rd-drive-browser-backend.zip', $backendPlain)
+[Array]::Clear($backendPlain, 0, $backendPlain.Length)
+$backendPlainHash = (Get-FileHash -Algorithm SHA256 'rd-drive-browser-backend.zip').Hash.ToLowerInvariant()
+if ($backendPlainHash -ne '9e5ce9c642798b097d99370b1eb7a57b32d60b9a5fd9920ba3550c78e658c931') {
+  throw "Browser backend source SHA256 mismatch: $backendPlainHash"
+}
+Expand-Archive -Path 'rd-drive-browser-backend.zip' -DestinationPath source -Force
+Remove-Item 'rd-drive-browser-backend.enc','rd-drive-browser-backend.zip' -Force
+
 # Contract marker expected by the source test suite.
 New-Item -ItemType Directory -Force -Path 'source/.github/workflows' | Out-Null
 Copy-Item '.github/workflows/redesign-release.yml' -Destination 'source/.github/workflows/windows-release.yml' -Force
