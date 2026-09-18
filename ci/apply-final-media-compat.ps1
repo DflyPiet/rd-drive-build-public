@@ -72,5 +72,5 @@ $verifyConfig = Get-Content -Raw $configPath
 if ($verifyCommands -notmatch 'pub async fn media_preview_prepare') { throw 'Legacy media preview compatibility command was not added.' }
 if ($verifyCommands -notmatch 'materialize_drive_item') { throw 'Verified Telegram materialization path is missing from media preview.' }
 if ($verifyLib -notmatch 'commands::media_preview_prepare') { throw 'Legacy media preview compatibility command is not registered.' }
-if ($verifyMedia -notmatch 'temp_dir\(\).*RDDrivePreview') { throw 'Media cache is not rooted in the restricted temporary preview directory.' }
+if (($verifyMedia -notmatch 'temp_dir\(\)') -or ($verifyMedia -notmatch 'RDDrivePreview')) { throw 'Media cache is not rooted in the restricted temporary preview directory.' }
 if ($verifyConfig -notmatch '\$TEMP/RDDrivePreview/\*\*') { throw 'Tauri asset protocol is not restricted to the temporary preview directory.' }
