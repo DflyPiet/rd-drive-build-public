@@ -2,9 +2,6 @@ name: RD Drive 1.0.0 Windows Final Release
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 permissions:
   contents: read
