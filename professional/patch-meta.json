@@ -1,0 +1,10 @@
+{
+  "plaintext_sha256": "7f58cee6cfc84c23e3b249ba7dc83787bbf2557cfe07baa70003e4e10db51aab",
+  "encrypted_sha256": "15f28823edb1ae6176c8b3d3841d95a5e7c0180466b3ac0dc8d6a2cb97dbd47a",
+  "encrypted_bytes": 46111,
+  "base64_length": 61484,
+  "parts": 7,
+  "part_lengths": [9000,9000,9000,9000,9000,9000,7484],
+  "wrapped_key_bytes": 384,
+  "aad": "RD-DRIVE-PROFESSIONAL-PATCH-v1"
+}
