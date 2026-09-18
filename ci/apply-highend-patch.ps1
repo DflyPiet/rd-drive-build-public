@@ -143,6 +143,7 @@ try {
   $appPath = Join-Path $SourceRoot 'src/App.tsx'
   $appSource = Get-Content -Raw $appPath
   $appSource = $appSource.Replace("const [active, setActive] = useState('Übersicht');", "const [active, setActive] = useState('Dateien');")
+  $appSource = $appSource.Replace("const navItems = ['Übersicht', 'Dateien', 'Transfers', 'Synchronisation', 'Team Shares', 'Einstellungen', 'Sicherheit', 'Diagnose'];", "const navItems = ['Dateien', 'Zuletzt', 'Favoriten', 'Papierkorb', 'Konto', 'Transfers', 'Synchronisation', 'Team Shares', 'Einstellungen', 'Sicherheit', 'Diagnose'];")
   $appSource = $appSource.Replace('<div className="brand-mark" aria-hidden="true">RD</div>', '<img className="brand-mark" src={new URL(''./assets/rd-drive-icon.png'', import.meta.url).href} alt="" aria-hidden="true" />')
   $appSource = $appSource.Replace('<span className="section-kicker">Dateien</span><h3>Persönlicher RD Speicher</h3>', '<span className="section-kicker">Dateien</span><h3>Meine Dateien</h3>')
   Set-Content -LiteralPath $appPath -Value $appSource -Encoding utf8
@@ -156,6 +157,9 @@ try {
   }
   if ($appVerify -notmatch 'Meine Dateien') {
     throw 'The drive surface is missing the Meine Dateien heading.'
+  }
+  foreach ($label in @('Zuletzt','Favoriten','Papierkorb','Konto')) {
+    if ($appVerify -notmatch [regex]::Escape($label)) { throw "Drive navigation is missing $label." }
   }
 
   $cargo = Get-Content -Raw (Join-Path $SourceRoot 'src-tauri/Cargo.toml')
