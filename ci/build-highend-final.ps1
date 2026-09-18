@@ -97,6 +97,11 @@ Remove-Item 'rd-drive-browser-backend.enc','rd-drive-browser-backend.zip' -Force
 & '.\ci\apply-highend-patch.ps1' -SourceRoot (Resolve-Path 'source')
 & '.\ci\apply-easy-ui-patch.ps1' -SourceRoot (Resolve-Path 'source')
 & '.\ci\apply-professional-patch.ps1' -SourceRoot (Resolve-Path 'source')
+$tgPath = 'source/src-tauri/src/telegram.rs'
+$tg = Get-Content -Raw $tgPath
+$tg = $tg.Replace('InputMessage::text(\"\").file(uploaded)', 'InputMessage::new().text(\"\").file(uploaded)')
+$tg = $tg.Replace('InputMessage::text(text).file(uploaded)', 'InputMessage::new().text(text).file(uploaded)')
+Set-Content -LiteralPath $tgPath -Value $tg -Encoding utf8
 & '.\ci\apply-final-media-compat.ps1' -SourceRoot (Resolve-Path 'source')
 
 # Contract marker expected by the source test suite.
