@@ -54,6 +54,15 @@ if ($teamText.Contains($oldTeam)) {
   Set-Content -Path $teamPath -Value $teamText -Encoding utf8 -NoNewline
 }
 
+$appPath = 'source/src/App.tsx'
+$appText = Get-Content -Raw $appPath
+$dragOld = "event.payload.type === 'cancel'"
+$dragNew = "event.payload.type === 'leave'"
+if ($appText.Contains($dragOld)) {
+  $appText = $appText.Replace($dragOld, $dragNew)
+  Set-Content -Path $appPath -Value $appText -Encoding utf8 -NoNewline
+}
+
 $commands = 'source/src-tauri/src/commands.rs' 
 $commandsText = Get-Content -Raw $commands
 if (-not $commandsText.Contains('RDDriveData')) {
