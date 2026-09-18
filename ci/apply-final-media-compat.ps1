@@ -13,21 +13,10 @@ $archivePath = Join-Path $SourceRoot 'src-tauri/src/archive.rs'
 
 
 $archive = Get-Content -Raw $archivePath
-$archiveOld = @'
-    let basename = Path::new(&name.replace('\', "/"))
-        .file_name()
-        .and_then(|part| part.to_str())
-        .unwrap_or("entry.bin");
-'@
-$archiveNew = @'
-    let normalized_name = name.replace('\', "/");
-    let basename = Path::new(&normalized_name)
-        .file_name()
-        .and_then(|part| part.to_str())
-        .unwrap_or("entry.bin");
-'@
-if ($archive.Contains($archiveOld)) {
-  $archive = $archive.Replace($archiveOld, $archiveNew)
+$archiveTarget = "let basename = Path::new(&name.replace('\\', \"/\"))"
+if ($archive.Contains($archiveTarget)) {
+  $archiveReplacement = "let normalized_name = name.replace('\\', \"/\");`r`n    let basename = Path::new(&normalized_name)"
+  $archive = $archive.Replace($archiveTarget, $archiveReplacement)
   Set-Content -LiteralPath $archivePath -Value $archive -Encoding utf8
 } elseif ($archive -match 'Path::new\(&name\.replace') {
   throw 'Archive lifetime fix target changed unexpectedly.'
