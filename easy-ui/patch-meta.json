@@ -1,0 +1,21 @@
+{
+  "plaintext_sha256": "f42549682d84ce9ae34b3e0f52dc457e300265a1956c6bc9e7c07d7460ff3d3d",
+  "encrypted_sha256": "7752b85a6aebbe724a47abf3d1c0d9dca7ac5e1afe11318e6352e8bcc8fb4637",
+  "encrypted_bytes": 28155,
+  "base64_length": 37540,
+  "parts": 11,
+  "part_lengths": [
+    3500,
+    3500,
+    3500,
+    3500,
+    3500,
+    3500,
+    3500,
+    3500,
+    3500,
+    3500,
+    2540
+  ],
+  "wrapped_key_bytes": 384
+}
