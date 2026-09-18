@@ -12,10 +12,6 @@ $configPath = Join-Path $SourceRoot 'src-tauri/tauri.conf.json'
 
 $commands = Get-Content -Raw $commandsPath
 if ($commands -notmatch 'pub async fn media_preview_prepare') {
-  $anchor = @'
-#[tauri::command]
-pub fn media_master_hls(
-'@
   $alias = @'
 #[tauri::command]
 pub async fn media_preview_prepare(
@@ -28,11 +24,11 @@ pub async fn media_preview_prepare(
     media_prepare_preview(app, sessions, telegram, profile_id, item_id).await
 }
 
-#[tauri::command]
-pub fn media_master_hls(
 '@
-  if (-not $commands.Contains($anchor)) { throw 'Could not locate media_master_hls insertion point.' }
-  $commands = $commands.Replace($anchor, $alias)
+  $pattern = '(?m)^#\[tauri::command\]\r?\npub fn media_master_hls\('
+  $updated = [regex]::Replace($commands, $pattern, ($alias + "#[tauri::command]`r`npub fn media_master_hls("), 1)
+  if ($updated -eq $commands) { throw 'Could not locate media_master_hls insertion point.' }
+  $commands = $updated
   Set-Content -LiteralPath $commandsPath -Value $commands -Encoding utf8
 }
 
