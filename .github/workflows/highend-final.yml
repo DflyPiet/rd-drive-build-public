@@ -1,4 +1,4 @@
-name: RD Drive 1.0.0 Easy HighEnd Final
+name: RD Drive 1.0.0 Professional Final
 
 on:
   workflow_dispatch:
@@ -8,8 +8,10 @@ on:
     paths:
       - highend/**
       - easy-ui/**
+      - professional/**
       - ci/apply-highend-patch.ps1
       - ci/apply-easy-ui-patch.ps1
+      - ci/apply-professional-patch.ps1
       - ci/apply-final-media-compat.ps1
       - ci/build-highend-final.ps1
       - .github/workflows/highend-final.yml
@@ -48,7 +50,7 @@ jobs:
           rustc --version
           cargo --version
 
-      - name: Build and verify RD Drive high-end final
+      - name: Build and verify RD Drive professional final
         shell: pwsh
         env:
           RD_BUILD_KEY: ${{ secrets.RD_BUILD_KEY }}
@@ -101,10 +103,10 @@ jobs:
             throw 'Release artifact was modified by smoke verification and contains preinitialized portable data.'
           }
 
-      - name: Upload RD Drive high-end final artifacts
+      - name: Upload RD Drive professional final artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: RD-Drive-1.0.0-EASY-HIGHEND-FINAL
+          name: RD-Drive-1.0.0-PROFESSIONAL-FINAL
           path: release-artifacts-highend-final/**/*
           if-no-files-found: error
           retention-days: 7
