@@ -42,8 +42,13 @@ $oldTelegram = 'InputMessage::text("").file(uploaded)'
 $newTelegram = 'InputMessage::new().text("").file(uploaded)'
 if ($telegramText.Contains($oldTelegram)) {
   $telegramText = $telegramText.Replace($oldTelegram, $newTelegram)
-  Set-Content -Path $telegramPath -Value $telegramText -Encoding utf8 -NoNewline
 }
+$oldTelegramCaption = 'InputMessage::text(caption.trim()).file(uploaded)'
+$newTelegramCaption = 'InputMessage::new().text(caption.trim()).file(uploaded)'
+if ($telegramText.Contains($oldTelegramCaption)) {
+  $telegramText = $telegramText.Replace($oldTelegramCaption, $newTelegramCaption)
+}
+Set-Content -Path $telegramPath -Value $telegramText -Encoding utf8 -NoNewline
 
 $teamPath = 'source/src-tauri/src/team_share.rs'
 $teamText = Get-Content -Raw $teamPath
