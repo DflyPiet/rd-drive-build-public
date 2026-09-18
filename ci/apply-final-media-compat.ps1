@@ -32,11 +32,34 @@ pub async fn media_preview_prepare(
   Set-Content -LiteralPath $commandsPath -Value $commands -Encoding utf8
 }
 
+$commands = Get-Content -Raw $commandsPath
+if ($commands -notmatch 'pub fn media_preview_cleanup') {
+  $cleanup = @'
+#[tauri::command]
+pub fn media_preview_cleanup(
+    app: AppHandle,
+    profile_id: String,
+) -> Result<media::MediaCacheStatus, String> {
+    let root = app_root(&app)?;
+    media::clear_cache(&root, &profile_id).map_err(|e| e.to_string())
+}
+
+'@
+  $pattern = '(?m)^#\[tauri::command\]\r?\npub fn media_master_hls\('
+  $updated = [regex]::Replace($commands, $pattern, ($cleanup + "#[tauri::command]`r`npub fn media_master_hls("), 1)
+  if ($updated -eq $commands) { throw 'Could not locate media cleanup insertion point.' }
+  $commands = $updated
+  Set-Content -LiteralPath $commandsPath -Value $commands -Encoding utf8
+}
+
 $lib = Get-Content -Raw $libPath
 if ($lib -notmatch 'commands::media_preview_prepare') {
   $lib = $lib.Replace('            commands::media_prepare_preview,', "            commands::media_prepare_preview,`r`n            commands::media_preview_prepare,")
-  Set-Content -LiteralPath $libPath -Value $lib -Encoding utf8
 }
+if ($lib -notmatch 'commands::media_preview_cleanup') {
+  $lib = $lib.Replace('            commands::media_preview_prepare,', "            commands::media_preview_prepare,`r`n            commands::media_preview_cleanup,")
+}
+Set-Content -LiteralPath $libPath -Value $lib -Encoding utf8
 
 $media = Get-Content -Raw $mediaPath
 $cachePattern = '(?s)pub fn cache_root\(root: &Path, profile_id: &str\) -> Result<PathBuf, AppError> \{.*?\r?\n\}\r?\n\r?\nfn original_dir'
@@ -62,7 +85,7 @@ Set-Content -LiteralPath $mediaPath -Value $updatedMedia -Encoding utf8
 $config = Get-Content -Raw $configPath | ConvertFrom-Json
 $config.app.security.assetProtocol.enable = $true
 $config.app.security.assetProtocol.scope = @('$TEMP/RDDrivePreview/**')
-$config.app.security.csp = "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://asset.localhost"
+$config.app.security.csp = "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; frame-src 'self' asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://asset.localhost"
 $config | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $configPath -Encoding utf8
 
 $verifyCommands = Get-Content -Raw $commandsPath
@@ -70,7 +93,10 @@ $verifyLib = Get-Content -Raw $libPath
 $verifyMedia = Get-Content -Raw $mediaPath
 $verifyConfig = Get-Content -Raw $configPath
 if ($verifyCommands -notmatch 'pub async fn media_preview_prepare') { throw 'Legacy media preview compatibility command was not added.' }
+if ($verifyCommands -notmatch 'pub fn media_preview_cleanup') { throw 'Legacy media preview cleanup command was not added.' }
 if ($verifyCommands -notmatch 'materialize_drive_item') { throw 'Verified Telegram materialization path is missing from media preview.' }
 if ($verifyLib -notmatch 'commands::media_preview_prepare') { throw 'Legacy media preview compatibility command is not registered.' }
+if ($verifyLib -notmatch 'commands::media_preview_cleanup') { throw 'Legacy media preview cleanup command is not registered.' }
 if (($verifyMedia -notmatch 'temp_dir\(\)') -or ($verifyMedia -notmatch 'RDDrivePreview')) { throw 'Media cache is not rooted in the restricted temporary preview directory.' }
 if ($verifyConfig -notmatch '\$TEMP/RDDrivePreview/\*\*') { throw 'Tauri asset protocol is not restricted to the temporary preview directory.' }
+if (($verifyConfig -notmatch 'frame-src') -or ($verifyConfig -notmatch 'asset:')) { throw 'Tauri CSP does not allow restricted asset frames.' }
