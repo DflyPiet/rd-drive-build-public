@@ -9,6 +9,29 @@ $commandsPath = Join-Path $SourceRoot 'src-tauri/src/commands.rs'
 $libPath = Join-Path $SourceRoot 'src-tauri/src/lib.rs'
 $mediaPath = Join-Path $SourceRoot 'src-tauri/src/media.rs'
 $configPath = Join-Path $SourceRoot 'src-tauri/tauri.conf.json'
+$archivePath = Join-Path $SourceRoot 'src-tauri/src/archive.rs'
+
+
+$archive = Get-Content -Raw $archivePath
+$archiveOld = @'
+    let basename = Path::new(&name.replace('\', "/"))
+        .file_name()
+        .and_then(|part| part.to_str())
+        .unwrap_or("entry.bin");
+'@
+$archiveNew = @'
+    let normalized_name = name.replace('\', "/");
+    let basename = Path::new(&normalized_name)
+        .file_name()
+        .and_then(|part| part.to_str())
+        .unwrap_or("entry.bin");
+'@
+if ($archive.Contains($archiveOld)) {
+  $archive = $archive.Replace($archiveOld, $archiveNew)
+  Set-Content -LiteralPath $archivePath -Value $archive -Encoding utf8
+} elseif ($archive -match 'Path::new\(&name\.replace') {
+  throw 'Archive lifetime fix target changed unexpectedly.'
+}
 
 $commands = Get-Content -Raw $commandsPath
 if ($commands -notmatch 'pub async fn media_preview_prepare') {
@@ -87,6 +110,9 @@ $config.app.security.assetProtocol.enable = $true
 $config.app.security.assetProtocol.scope = @('$TEMP/RDDrivePreview/**')
 $config.app.security.csp = "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; frame-src 'self' asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://asset.localhost"
 $config | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $configPath -Encoding utf8
+
+$verifyArchive = Get-Content -Raw $archivePath
+if ($verifyArchive -match 'Path::new\(&name\.replace') { throw 'Archive lifetime regression is still present.' }
 
 $verifyCommands = Get-Content -Raw $commandsPath
 $verifyLib = Get-Content -Raw $libPath
