@@ -97,12 +97,6 @@ Remove-Item 'rd-drive-browser-backend.enc','rd-drive-browser-backend.zip' -Force
 & '.\ci\apply-highend-patch.ps1' -SourceRoot (Resolve-Path 'source')
 & '.\ci\apply-final-media-compat.ps1' -SourceRoot (Resolve-Path 'source')
 
-Write-Host 'ARCHIVE-DIAGNOSTIC-FUNCTION'
-Get-Content 'source/src-tauri/src/archive.rs' | Select-Object -Skip 70 -First 55
-Write-Host 'ARCHIVE-DIAGNOSTIC-TEST'
-Get-Content 'source/src-tauri/src/archive.rs' | Select-Object -Skip 265 -First 45
-throw 'ARCHIVE_DIAGNOSTIC_COMPLETE'
-
 # Contract marker expected by the source test suite.
 New-Item -ItemType Directory -Force -Path 'source/.github/workflows' | Out-Null
 Copy-Item '.github/workflows/redesign-release.yml' -Destination 'source/.github/workflows/windows-release.yml' -Force
