@@ -77,7 +77,7 @@ fn app_root(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 New-Item -ItemType Directory -Force -Path 'source/src-tauri/icons' | Out-Null
-$iconB64 = (Get-Content -Raw 'ci/rd-drive-icon.ico.b64') -replace '\s',''
+$iconB64 = (Get-Content -Raw 'ci/icon.ico.b64') -replace '\s',''
 [IO.File]::WriteAllBytes('source/src-tauri/icons/icon.ico', [Convert]::FromBase64String($iconB64))
 $configPath = 'source/src-tauri/tauri.conf.json'
 $config = Get-Content -Raw $configPath | ConvertFrom-Json
