@@ -79,7 +79,13 @@ jobs:
           $ascii = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($portable))
           if ($ascii.Contains('http://localhost:1420')) { throw 'Portable contains development localhost URL.' }
 
-          $proc = Start-Process -FilePath $portable -PassThru
+          $smokeRoot = Join-Path $env:RUNNER_TEMP 'rd-drive-portable-smoke'
+          Remove-Item $smokeRoot -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $smokeRoot | Out-Null
+          $smokePortable = Join-Path $smokeRoot 'RD-Drive-Portable.exe'
+          Copy-Item -LiteralPath $portable -Destination $smokePortable -Force
+
+          $proc = Start-Process -FilePath $smokePortable -WorkingDirectory $smokeRoot -PassThru
           Start-Sleep -Seconds 5
           if ($proc.HasExited) {
             if ($proc.ExitCode -ne 0) { throw "Portable smoke start exited with code $($proc.ExitCode)." }
@@ -88,6 +94,11 @@ jobs:
           else {
             Stop-Process -Id $proc.Id -Force
             Write-Host 'Portable smoke start remained alive for five seconds and was stopped after verification.'
+          }
+
+          Remove-Item $smokeRoot -Recurse -Force -ErrorAction SilentlyContinue
+          if (Test-Path (Join-Path $root 'Portable\RDDriveData')) {
+            throw 'Release artifact was modified by smoke verification and contains preinitialized portable data.'
           }
 
       - name: Upload RD Drive high-end final artifacts
