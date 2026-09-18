@@ -1,0 +1,75 @@
+name: RD Drive HighEnd Key Bootstrap
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - highend-final
+    paths:
+      - .github/workflows/highend-key-bootstrap.yml
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: highend-final
+          fetch-depth: 0
+
+      - name: Generate protected high-end patch keypair
+        shell: pwsh
+        env:
+          RD_BUILD_KEY: ${{ secrets.RD_BUILD_KEY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RD_BUILD_KEY -notmatch '^[0-9a-fA-F]{64}$') { throw 'RD_BUILD_KEY secret is missing or invalid.' }
+          if ((Test-Path 'highend/key-public.pem') -and (Test-Path 'highend/key-private.enc.b64')) {
+            Write-Host 'High-end keypair already exists.'
+            exit 0
+          }
+
+          New-Item -ItemType Directory -Force -Path highend | Out-Null
+
+          [byte[]]$master = for ($i = 0; $i -lt 64; $i += 2) { [Convert]::ToByte($env:RD_BUILD_KEY.Substring($i, 2), 16) }
+          $rsa = [System.Security.Cryptography.RSA]::Create(3072)
+          try {
+            [byte[]]$public = $rsa.ExportSubjectPublicKeyInfo()
+            [byte[]]$private = $rsa.ExportPkcs8PrivateKey()
+
+            $pemBody = [Convert]::ToBase64String($public, [Base64FormattingOptions]::InsertLineBreaks)
+            @("-----BEGIN PUBLIC KEY-----", $pemBody, "-----END PUBLIC KEY-----") | Set-Content -Path 'highend/key-public.pem' -Encoding ascii
+
+            [byte[]]$nonce = New-Object byte[] 12
+            [System.Security.Cryptography.RandomNumberGenerator]::Fill($nonce)
+            [byte[]]$tag = New-Object byte[] 16
+            [byte[]]$cipher = New-Object byte[] $private.Length
+            [byte[]]$aad = [Text.Encoding]::ASCII.GetBytes('RD-DRIVE-HIGHEND-KEY-v1')
+            $aes = [System.Security.Cryptography.AesGcm]::new($master, 16)
+            try { $aes.Encrypt($nonce, $private, $cipher, $tag, $aad) }
+            finally { $aes.Dispose() }
+
+            [byte[]]$magic = [Text.Encoding]::ASCII.GetBytes('RDHK1')
+            [byte[]]$blob = New-Object byte[] ($magic.Length + $nonce.Length + $tag.Length + $cipher.Length)
+            [Array]::Copy($magic, 0, $blob, 0, $magic.Length)
+            [Array]::Copy($nonce, 0, $blob, $magic.Length, $nonce.Length)
+            [Array]::Copy($tag, 0, $blob, $magic.Length + $nonce.Length, $tag.Length)
+            [Array]::Copy($cipher, 0, $blob, $magic.Length + $nonce.Length + $tag.Length, $cipher.Length)
+            [Convert]::ToBase64String($blob) | Set-Content -Path 'highend/key-private.enc.b64' -Encoding ascii
+
+            [Array]::Clear($private, 0, $private.Length)
+            [Array]::Clear($cipher, 0, $cipher.Length)
+          }
+          finally {
+            $rsa.Dispose()
+            [Array]::Clear($master, 0, $master.Length)
+          }
+
+          git config user.name "RD Drive Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add highend/key-public.pem highend/key-private.enc.b64
+          git commit -m "Add protected high-end patch keypair"
+          git push origin HEAD:highend-final
