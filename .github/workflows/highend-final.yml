@@ -1,4 +1,4 @@
-name: RD Drive 1.0.0 HighEnd Final
+name: RD Drive 1.0.0 Easy HighEnd Final
 
 on:
   workflow_dispatch:
@@ -7,7 +7,9 @@ on:
       - highend-final
     paths:
       - highend/**
+      - easy-ui/**
       - ci/apply-highend-patch.ps1
+      - ci/apply-easy-ui-patch.ps1
       - ci/apply-final-media-compat.ps1
       - ci/build-highend-final.ps1
       - .github/workflows/highend-final.yml
@@ -91,7 +93,7 @@ jobs:
       - name: Upload RD Drive high-end final artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: RD-Drive-1.0.0-HIGHEND-FINAL
+          name: RD-Drive-1.0.0-EASY-HIGHEND-FINAL
           path: release-artifacts-highend-final/**/*
           if-no-files-found: error
           retention-days: 7
