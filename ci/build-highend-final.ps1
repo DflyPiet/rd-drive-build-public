@@ -95,6 +95,7 @@ Remove-Item 'rd-drive-browser-backend.enc','rd-drive-browser-backend.zip' -Force
 
 # 2c) Apply the independently encrypted high-end media/archive patch.
 & '.\ci\apply-highend-patch.ps1' -SourceRoot (Resolve-Path 'source')
+& '.\ci\apply-final-media-compat.ps1' -SourceRoot (Resolve-Path 'source')
 
 # Contract marker expected by the source test suite.
 New-Item -ItemType Directory -Force -Path 'source/.github/workflows' | Out-Null
@@ -118,6 +119,9 @@ try {
 
   npm test
   if ($LASTEXITCODE -ne 0) { throw 'TypeScript high-end browser/media/archive tests failed.' }
+  Write-Host 'Media preview contract excerpt:'
+  Get-Content 'tests/test_media_preview_contract.py'
+
   python -m pytest tests -q
   if ($LASTEXITCODE -ne 0) { throw 'Python high-end browser/media/archive contracts failed.' }
   npm run build
