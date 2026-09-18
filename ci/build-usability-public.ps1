@@ -48,6 +48,7 @@ $newTelegramCaption = 'InputMessage::new().text(caption.trim()).file(uploaded)'
 if ($telegramText.Contains($oldTelegramCaption)) {
   $telegramText = $telegramText.Replace($oldTelegramCaption, $newTelegramCaption)
 }
+$telegramText = $telegramText.Replace('LoginToken::LoginToken(token)', 'LoginToken::Token(token)')
 Set-Content -Path $telegramPath -Value $telegramText -Encoding utf8 -NoNewline
 
 $teamPath = 'source/src-tauri/src/team_share.rs'
