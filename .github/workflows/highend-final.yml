@@ -8,6 +8,7 @@ on:
     paths:
       - highend/**
       - ci/apply-highend-patch.ps1
+      - ci/apply-final-media-compat.ps1
       - ci/build-highend-final.ps1
       - .github/workflows/highend-final.yml
 
