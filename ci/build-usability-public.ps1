@@ -90,9 +90,8 @@ fn app_root(app: &AppHandle) -> Result<PathBuf, String> {
   Set-Content -Path $commands -Value $updated -Encoding utf8 -NoNewline
 }
 
-New-Item -ItemType Directory -Force -Path 'source/src-tauri/icons' | Out-Null
-$iconB64 = (Get-Content -Raw 'ci/icon.ico.b64') -replace '\s',''
-[IO.File]::WriteAllBytes('source/src-tauri/icons/icon.ico', [Convert]::FromBase64String($iconB64))
+python .\ci\make-rd-icons.py
+if ($LASTEXITCODE -ne 0) { throw 'RD Drive icon generation failed.' }
 $configPath = 'source/src-tauri/tauri.conf.json'
 $config = Get-Content -Raw $configPath | ConvertFrom-Json
 $config.bundle | Add-Member -NotePropertyName icon -NotePropertyValue @('icons/icon.ico') -Force
