@@ -113,8 +113,8 @@ try {
 
   npm install
   if ($LASTEXITCODE -ne 0) { throw 'npm install failed.' }
-  Write-Host 'Drive workspace contract assertions:'
-  Get-Content 'tests/drive_workspace.test.ts' | Select-String -Pattern 'assert\\.'
+  Write-Host 'Drive workspace contract excerpt:'
+  Get-Content 'tests/drive_workspace.test.ts' | Select-Object -Skip 15 -First 35
 
   npm test
   if ($LASTEXITCODE -ne 0) { throw 'TypeScript high-end browser/media/archive tests failed.' }
