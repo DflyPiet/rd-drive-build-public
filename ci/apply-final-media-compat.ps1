@@ -13,13 +13,15 @@ $archivePath = Join-Path $SourceRoot 'src-tauri/src/archive.rs'
 
 
 $archive = Get-Content -Raw $archivePath
-$archiveTarget = "let basename = Path::new(&name.replace('\\', \"/\"))"
-if ($archive.Contains($archiveTarget)) {
-  $archiveReplacement = "let normalized_name = name.replace('\\', \"/\");`r`n    let basename = Path::new(&normalized_name)"
-  $archive = $archive.Replace($archiveTarget, $archiveReplacement)
-  Set-Content -LiteralPath $archivePath -Value $archive -Encoding utf8
-} elseif ($archive -match 'Path::new\(&name\.replace') {
-  throw 'Archive lifetime fix target changed unexpectedly.'
+$archivePattern = 'let basename = Path::new\(&name\.replace\([^\r\n]+\)\)'
+if ($archive -match 'Path::new\(&name\.replace') {
+  $archiveReplacement = @'
+let normalized_name = name.replace('\\', "/");
+    let basename = Path::new(&normalized_name)
+'@
+  $updatedArchive = [regex]::Replace($archive, $archivePattern, $archiveReplacement, 1)
+  if ($updatedArchive -eq $archive) { throw 'Archive lifetime fix target changed unexpectedly.' }
+  Set-Content -LiteralPath $archivePath -Value $updatedArchive -Encoding utf8
 }
 
 $commands = Get-Content -Raw $commandsPath
