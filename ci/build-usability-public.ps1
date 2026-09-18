@@ -65,8 +65,13 @@ $dragOld = "event.payload.type === 'cancel'"
 $dragNew = "event.payload.type === 'leave'"
 if ($appText.Contains($dragOld)) {
   $appText = $appText.Replace($dragOld, $dragNew)
-  Set-Content -Path $appPath -Value $appText -Encoding utf8 -NoNewline
 }
+$shareUnionOld = 'shareSource?.id === item.id'
+$shareUnionNew = "shareSource && 'id' in shareSource && shareSource.id === item.id"
+if ($appText.Contains($shareUnionOld)) {
+  $appText = $appText.Replace($shareUnionOld, $shareUnionNew)
+}
+Set-Content -Path $appPath -Value $appText -Encoding utf8 -NoNewline
 
 $commands = 'source/src-tauri/src/commands.rs' 
 $commandsText = Get-Content -Raw $commands
