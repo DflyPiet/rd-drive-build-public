@@ -144,6 +144,7 @@ try {
   $appSource = Get-Content -Raw $appPath
   $appSource = $appSource.Replace("const [active, setActive] = useState('Übersicht');", "const [active, setActive] = useState('Dateien');")
   $appSource = $appSource.Replace('<div className="brand-mark" aria-hidden="true">RD</div>', '<img className="brand-mark" src={new URL(''./assets/rd-drive-icon.png'', import.meta.url).href} alt="" aria-hidden="true" />')
+  $appSource = $appSource.Replace('<span className="section-kicker">Dateien</span><h3>Persönlicher RD Speicher</h3>', '<span className="section-kicker">Dateien</span><h3>Meine Dateien</h3>')
   Set-Content -LiteralPath $appPath -Value $appSource -Encoding utf8
 
   $appVerify = Get-Content -Raw $appPath
@@ -152,6 +153,9 @@ try {
   }
   if ($appVerify -notmatch 'rd-drive-icon\.png') {
     throw 'RD Drive artwork is not wired as the browser brand asset.'
+  }
+  if ($appVerify -notmatch 'Meine Dateien') {
+    throw 'The drive surface is missing the Meine Dateien heading.'
   }
 
   $cargo = Get-Content -Raw (Join-Path $SourceRoot 'src-tauri/Cargo.toml')
