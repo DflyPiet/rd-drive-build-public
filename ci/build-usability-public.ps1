@@ -169,6 +169,15 @@ $commandsText = $commandsText.Replace(
  'let _ = if previous.autostart_enabled { manager.enable() } else { manager.disable() };',
   'let _ = windows_autostart::set_enabled(previous_autostart);'
 )
+$commandsText = $commandsText.Replace('    let manager = app.autolaunch();', '')
+$commandsText = $commandsText.Replace(
+  '    let autostart_result = if requested_autostart { manager.enable() } else { manager.disable() };',
+  "    let previous_autostart = windows_autostart::is_enabled().unwrap_or(previous.autostart_enabled);`r`n    windows_autostart::set_enabled(requested_autostart)"
+)
+$commandsText = $commandsText.Replace(
+  '    autostart_result.map_err(|error| format!("autostart:{error}"))?;',
+  '        .map_err(|error| format!("autostart:{error}"))?;'
+)
 Set-Content -Path $commandsPath -Value $commandsText -Encoding utf8 -NoNewline
 
 $windowsAutostartPath = 'source/src-tauri/src/windows_autostart.rs'
