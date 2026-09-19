@@ -234,7 +234,7 @@ mod platform {
         let run_key = match hkcu.open_subkey(RUN_KEY) {
             Ok(key) => key,
             Err(error) if not_found(&error) => return Ok(false),
-            Err(error) => return Err(format!("run_key_open:{error}"))),
+            Err(error) => return Err(format!("run_key_open:{error}")),
         };
 
         let configured: String = match run_key.get_value(VALUE_NAME) {
