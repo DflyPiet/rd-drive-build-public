@@ -96,6 +96,287 @@ fn app_root(app: &AppHandle) -> Result<PathBuf, String> {
   Set-Content -Path $commands -Value $updated -Encoding utf8 -NoNewline
 }
 
+# Windows Autostart hotfix: use HKCU Run with the actual running EXE path.
+# This works for installed and portable builds without admin rights.
+$cargo = 'source/src-tauri/Cargo.toml'
+$cargoText = Get-Content -Raw $cargo
+$cargoText = [regex]::Replace($cargoText, '(?m)^\s*tauri-plugin-autostart\s*=\s*"2"\s*\r?\n', '')
+if ($cargoText -notmatch '(?m)^winreg\s*=\s*"0\.55"\s*
+if ($LASTEXITCODE -ne 0) { throw 'RD Drive icon generation failed.' }
+if (-not (Test-Path 'source/src/assets/rd-drive-icon.jpg')) { throw 'Frontend RD Drive icon missing after generation.' }
+@'
+declare module '*.jpg' {
+  const src: string;
+  export default src;
+}
+declare module '*.jpeg' {
+  const src: string;
+  export default src;
+}
+declare module '*.png' {
+  const src: string;
+  export default src;
+}
+declare module '*.ico' {
+  const src: string;
+  export default src;
+}
+'@ | Set-Content -Path 'source/src/assets.d.ts' -Encoding utf8
+$configPath = 'source/src-tauri/tauri.conf.json'
+$config = Get-Content -Raw $configPath | ConvertFrom-Json
+$config.bundle | Add-Member -NotePropertyName icon -NotePropertyValue @('icons/icon.ico') -Force
+$config | ConvertTo-Json -Depth 100 | Set-Content -Path $configPath -Encoding utf8
+
+rustup default stable
+if ($LASTEXITCODE -ne 0) { throw 'rustup default stable failed.' }
+rustup target add x86_64-pc-windows-msvc
+if ($LASTEXITCODE -ne 0) { throw 'Rust Windows target installation failed.' }
+rustc --version
+cargo --version
+node --version
+npm --version
+
+Push-Location source
+try {
+  npm install
+  if ($LASTEXITCODE -ne 0) { throw 'npm install failed.' }
+
+  npm test
+  if ($LASTEXITCODE -ne 0) { throw 'Frontend tests failed.' }
+
+  python -m pytest tests -q
+  if ($LASTEXITCODE -ne 0) { throw 'Backend contract tests failed.' }
+
+  npm run build
+  if ($LASTEXITCODE -ne 0) { throw 'Frontend production build failed.' }
+
+  cargo test --manifest-path src-tauri/Cargo.toml --all-targets
+  if ($LASTEXITCODE -ne 0) { throw 'Rust tests failed.' }
+
+  npm run tauri build -- --target x86_64-pc-windows-msvc
+  if ($LASTEXITCODE -ne 0) { throw 'Installed Windows Tauri build failed.' }
+}
+finally {
+  Pop-Location
+}
+
+$out = Join-Path $PWD 'release-artifacts'
+Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force -Path "$out/Setup" | Out-Null
+New-Item -ItemType Directory -Force -Path "$out/Portable" | Out-Null
+
+$installedRaw = 'source/src-tauri/target/x86_64-pc-windows-msvc/release/rd-drive.exe'
+if (-not (Test-Path $installedRaw)) { throw 'Installed RD Drive EXE was not produced.' }
+Copy-Item $installedRaw "$out/RD-Drive.exe" -Force
+
+$bundleRoot = 'source/src-tauri/target/x86_64-pc-windows-msvc/release/bundle'
+$setups = @(Get-ChildItem -Path $bundleRoot -Recurse -File -Include '*.exe','*.msi' -ErrorAction SilentlyContinue)
+if ($setups.Count -eq 0) { throw 'No Windows installer bundle was produced.' }
+foreach ($file in $setups) { Copy-Item $file.FullName "$out/Setup/$($file.Name)" -Force }
+
+$portableConfig = @{
+  build = @{
+    devUrl = $null
+    frontendDist = '../dist'
+    features = @('portable')
+  }
+  bundle = @{ active = $false }
+} | ConvertTo-Json -Depth 10
+$portableConfig | Set-Content -Path 'source/src-tauri/tauri.portable.conf.json' -Encoding utf8
+
+Push-Location source
+try {
+  npm run tauri build -- --target x86_64-pc-windows-msvc --no-bundle --config src-tauri/tauri.portable.conf.json
+  if ($LASTEXITCODE -ne 0) { throw 'Portable Windows Tauri build failed.' }
+}
+finally {
+  Pop-Location
+}
+
+$portableRaw = 'source/src-tauri/target/x86_64-pc-windows-msvc/release/rd-drive.exe'
+if (-not (Test-Path $portableRaw)) { throw 'Portable RD Drive EXE was not produced.' }
+$bytes = [IO.File]::ReadAllBytes($portableRaw)
+$ascii = [Text.Encoding]::ASCII.GetString($bytes)
+if ($ascii.Contains('http://localhost:1420')) { throw 'Portable EXE still contains the development localhost URL.' }
+Copy-Item $portableRaw "$out/Portable/RD-Drive-Portable.exe" -Force
+@(
+  'RD Drive 1.0.0 Portable',
+  '',
+  'Keine Installation erforderlich.',
+  'Programmdaten werden im Ordner RDDriveData neben der EXE gespeichert.'
+) | Set-Content "$out/Portable/PORTABLE-HINWEIS.txt" -Encoding utf8
+
+$files = Get-ChildItem -Path $out -Recurse -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' }
+$lines = foreach ($file in $files) {
+  $relative = [IO.Path]::GetRelativePath($out, $file.FullName)
+  $hash = (Get-FileHash -Algorithm SHA256 -Path $file.FullName).Hash.ToLowerInvariant()
+  "$hash  $relative"
+}
+$lines | Set-Content -Path (Join-Path $out 'SHA256SUMS.txt') -Encoding ascii
+Get-ChildItem $out -Recurse -File | Select-Object FullName,Length | Format-Table -AutoSize) {
+  if ($cargoText -match "(?m)^\[target\.'cfg\(windows\)'\.dependencies\]\s*$") {
+    $cargoText = [regex]::Replace(
+      $cargoText,
+      "(?m)^(\[target\.'cfg\(windows\)'\.dependencies\]\s*)$",
+      "`$1`r`nwinreg = `"0.55`"",
+      1
+    )
+  } else {
+    $cargoText = $cargoText.Replace(
+      '[dev-dependencies]',
+      "[target\.'cfg(windows)\'.dependencies]`r`nwinreg = `"0.55`"`r`n`r`n[dev-dependencies]"
+    )
+  }
+}
+Set-Content -Path $cargo -Value $cargoText -Encoding utf8 -NoNewline
+
+$libPath = 'source/src-tauri/src/lib.rs'
+$libText = Get-Content -Raw $libPath
+if (-not $libText.Contains('mod windows_autostart;')) {
+  if (-not $libText.Contains('mod vault;')) { throw 'Could not locate lib.rs module anchor for autostart fix.' }
+  $libText = $libText.Replace('mod vault;', "mod vault;`r`nmod windows_autostart;")
+}
+$libText = [regex]::Replace(
+  $libText,
+  '(?m)^\s*\.plugin\(tauri_plugin_autostart::Builder::new\(\)\.build\()\)\s*\r?\n',
+  ''
+)
+Set-Content -Path $libPath -Value $libText -Encoding utf8 -NoNewline
+
+$commandsPath = 'source/src-tauri/src/commands.rs'
+$commandsText = Get-Content -Raw $commandsPath
+$commandsText = [regex]::Replace(
+  $commandsText,
+  '(?m)^use tauri_plugin_autostart::ManagerExt;\s*\r?\n',
+  ''
+)
+if (-not $commandsText.Contains('team_share, windows_autostart,')) {
+  $commandsText = $commandsText.Replace(
+    'cache, desktop, diagnostics, legacy_share, local_services, network_settings, picker, preview, quick_share, remote_import, team_share,',
+    'cache, desktop, diagnostics, legacy_share, local_services, network_settings, picker, preview, quick_share, remote_import, team_share, windows_autostart,'
+  )
+}
+$commandsText = $commandsText.Replace(
+  'app.autolaunch().is_enabled()',
+  'windows_autostart::is_enabled()'
+)
+$oldAutostartBlock = @'
+    let manager = app.autolaunch();
+    let autostart_result = if requested_autostart { manager.enable() } else { manager.disable() };
+    autostart_result.map_err(|error| format!("autostart:{error}"));
+'@
+$newAutostartBlock = @'
+    let previous_autostart = windows_autostart::is_enabled().unwrap_or(previous.autostart_enabled);
+    windows_autostart::set_enabled(requested_autostart)
+        .map_err(|error| format!("autostart:{error}"))?;
+'@
+if ($commandsText.Contains($oldAutostartBlock)) {
+  $commandsText = $commandsText.Replace($oldAutostartBlock, $newAutostartBlock)
+}
+$commandsText = $commandsText.Replace(
+  'saved.autostart_enabled = manager.is_enabled().unwrap_or(requested_autostart);',
+  'saved.autostart_enabled = windows_autostart::is_enabled().unwrap_or(requested_autostart);'
+)
+$commandsText = $commandsText.Replace(
+ 'let _ = if previous.autostart_enabled { manager.enable() } else { manager.disable() };',
+  'let _ = windows_autostart::set_enabled(previous_autostart);'
+)
+Set-Content -Path $commandsPath -Value $commandsText -Encoding utf8 -NoNewline
+
+$windowsAutostartPath = 'source/src-tauri/src/windows_autostart.rs'
+@'
+#[cfg(windows)]
+mod platform {
+    use std::{env, io, path::PathBuf};
+
+    use winreg::{enums::HKEY_CURRENT_USER, RegKey};
+
+    const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
+    const VALUE_NAME: &str = "RD Drive";
+
+    fn current_executable() -> Result<PathBuf, String> {
+        let exe = env::current_exe().map_err(|error| format!("current_exe:{error}"))?;
+        if !exe.is_file() {
+            return Err(format!("current_exe_missing:{}", exe.display()));
+        }
+        Ok(exe)
+    }
+
+    fn startup_command() -> Result<String, String> {
+        let exe = current_executable()?;
+        Ok(format!("\"{}\"", exe.display()))
+    }
+
+    fn not_found(error: &io::Error) -> bool {
+        error.kind() == io::ErrorKind::NotFound || error.raw_os_error() == Some(2)
+    }
+
+    pub fn set_enabled(enabled: bool) -> Result<(), String> {
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let (run_key, _) = hkcu
+            .create_subkey(RUN_KEY)
+            .map_err(|error| format!("run_key_open:{error}"))?;
+
+        if enabled {
+            let command = startup_command()?;
+            run_key
+                .set_value(VALUE_NAME, &command)
+                .map_err(|error| format!("run_key_write:{error}"))?;
+            return Ok(());
+        }
+
+        match run_key.delete_value(VALUE_NAME) {
+            Ok(()) => Ok(()),
+            Err(error) if not_found(&error) => Ok(()),
+            Err(error) => Err(format!("run_key_delete:{error}")),
+        }
+    }
+
+    pub fn is_enabled() -> Result<bool, String> {
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let run_key = match hkcu.open_subkey(RUN_KEY) {
+            Ok(key) => key,
+            Err(error) if not_found(&error) => return Ok(false),
+            Err(error) => return Err(format!("run_key_open:{error}"))),
+        };
+
+        let configured: String = match run_key.get_value(VALUE_NAME) {
+            Ok(value) => value,
+            Err(error) if not_found(&error) => return Ok(false),
+            Err(error) => return Err(format!("run_key_read:{error}")),
+        };
+
+        let expected = startup_command()?;
+        Ok(configured.trim().eq_ignore_ascii_case(expected.trim()))
+    }
+}
+
+#[cfg(not(windows))]
+mod platform {
+    pub fn set_enabled(_enabled: bool) -> Result<(), String> {
+        Ok(())
+    }
+
+    pub fn is_enabled() -> Result<bool, String> {
+        Ok(false)
+    }
+}
+
+pub use platform::{is_enabled, set_enabled};
+'@ | Set-Content -Path $windowsAutostartPath -Encoding utf8 -NoNewline
+
+$cargoCheck = Get-Content -Raw $cargo
+$libCheck = Get-Content -Raw $libPath
+$commandsCheck = Get-Content -Raw $commandsPath
+if ($cargoCheck.Contains('tauri-plugin-autostart')) { throw 'Old Tauri autostart dependency is still present.' }
+if (-not $cargoCheck.Contains('winreg = "0.55"')) { throw 'winreg dependency missing after autostart fix.' }
+if ($libCheck.Contains('tauri_plugin_autostart')) { throw 'Old Tauri autostart plugin is still registered.' }
+if (-not $libCheck.Contains('mod windows_autostart;')) { throw 'windows_autostart module is not registered.' }
+if ($commandsCheck.Contains('ManagerExt') -or $commandsCheck.Contains('app.autolaunch()')) { throw 'Old autostart API is still referenced.' }
+if (-not $commandsCheck.Contains('windows_autostart::set_enabled(requested_autostart)')) { throw 'New autostart setter is missing.' }
+if (-not (Test-Path $windowsAutostartPath)) { throw 'windows_autostart.rs was not created.' }
+
+
 python .\ci\make-rd-icons.py
 if ($LASTEXITCODE -ne 0) { throw 'RD Drive icon generation failed.' }
 if (-not (Test-Path 'source/src/assets/rd-drive-icon.jpg')) { throw 'Frontend RD Drive icon missing after generation.' }
