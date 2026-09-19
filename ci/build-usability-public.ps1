@@ -112,7 +112,7 @@ if ($cargoText -notmatch '(?m)^winreg\s*=\s*"0\.55"\s*$') {
   } else {
     $cargoText = $cargoText.Replace(
       '[dev-dependencies]',
-      "[target\.'cfg(windows)\'.dependencies]`r`nwinreg = `"0.55`"`r`n`r`n[dev-dependencies]"
+      "[target.'cfg(windows)'.dependencies]`r`nwinreg = `"0.55`"`r`n`r`n[dev-dependencies]"
     )
   }
 }
