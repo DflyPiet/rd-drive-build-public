@@ -126,7 +126,7 @@ if (-not $libText.Contains('mod windows_autostart;')) {
 }
 $libText = [regex]::Replace(
   $libText,
-  '(?m)^\s*\.plugin\(tauri_plugin_autostart::Builder::new\(\)\.build\()\)\s*\r?\n',
+  '(?m)^\s*\.plugin\(tauri_plugin_autostart::Builder::new\(\)\.build\(\)\)\s*\r?\n',
   ''
 )
 Set-Content -Path $libPath -Value $libText -Encoding utf8 -NoNewline
