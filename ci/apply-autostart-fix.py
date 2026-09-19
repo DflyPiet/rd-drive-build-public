@@ -148,7 +148,7 @@ write('src-tauri/src/commands.rs', commands)
 cargo = read('src-tauri/Cargo.toml')
 cargo = re.sub(r'^tauri-plugin-autostart\s*=.*\n', '', cargo, flags=re.M)
 if 'winreg = "0.55"' not in cargo:
-    cargo = cargo.replace('[dev-dependencies]', '[target.\\'cfg(windows)\\'.dependencies]\nwinreg = "0.55"\n\n[dev-dependencies]')
+    cargo = cargo.replace('[dev-dependencies]', "[target.'cfg(windows)'.dependencies]\\nwinreg = \\\"0.55\\\"\\n\\n[dev-dependencies]")
 write('src-tauri/Cargo.toml', cargo)
 
 contract = ROOT / 'tests/test_usability_backend_contract.py'
