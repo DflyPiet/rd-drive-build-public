@@ -290,6 +290,9 @@ if (-not $commandsCheck.Contains('windows_autostart::set_enabled(requested_autos
 if (-not (Test-Path $windowsAutostartPath)) { throw 'windows_autostart.rs was not created.' }
 
 
+python .\ci\apply-autostart-fix.py
+if ($LASTEXITCODE -ne 0) { throw 'Windows autostart hotfix validation failed.' }
+
 python .\ci\make-rd-icons.py
 if ($LASTEXITCODE -ne 0) { throw 'RD Drive icon generation failed.' }
 if (-not (Test-Path 'source/src/assets/rd-drive-icon.jpg')) { throw 'Frontend RD Drive icon missing after generation.' }
