@@ -262,6 +262,22 @@ mod platform {
 pub use platform::{is_enabled, set_enabled};
 '@ | Set-Content -Path $windowsAutostartPath -Encoding utf8 -NoNewline
 
+$autostartTestPath = 'source/tests/test_usability_backend_contract.py'
+$autostartTest = Get-Content -Raw $autostartTestPath
+$autostartTest = $autostartTest.Replace(
+  '    assert ''tauri-plugin-autostart = "2"'' in cargo',
+  '    assert ''winreg = "0.55"'' in cargo'
+)
+$autostartTest = $autostartTest.Replace(
+  '    assert ''app.autolaunch()'' in commands',
+  @'
+    autostart = (ROOT / "src-tauri" / "src" / "windows_autostart.rs").read_text(encoding="utf-8")
+    assert 'windows_autostart::set_enabled' in commands
+    assert 'HKEY_CURRENT_USER' in autostart and 'CurrentVersion\\Run' in autostart
+    assert 'current_exe' in autostart and 'eq_ignore_ascii_case' in autostart
+'@
+)
+Set-Content -Path $autostartTestPath -Value $autostartTest -Encoding utf8 -NoNewline
 $cargoCheck = Get-Content -Raw $cargo
 $libCheck = Get-Content -Raw $libPath
 $commandsCheck = Get-Content -Raw $commandsPath
