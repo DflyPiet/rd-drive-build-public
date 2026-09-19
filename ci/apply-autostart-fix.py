@@ -1,58 +1,9 @@
 from pathlib import Path
 import re
 
-root = Path("source")
-cargo = root / "src-tauri" / "Cargo.toml"
-lib = root / "src-tauri" / "src" / "lib.rs"
-commands = root / "src-tauri" / "src" / "commands.rs"
-autostart = root / "src-tauri" / "src" / "windows_autostart.rs"
+ROOT = Path('source')
 
-cargo_text = cargo.read_text(encoding="utf-8")
-cargo_text = re.sub(r'(?m)^\s*tauri-plugin-autostart\s*=\s*"2"\s*\r?\n', "", cargo_text)
-if 'winreg = "0.55"' not in cargo_text:
-    target = "[target.'cfg(windows)'.dependencies]"
-    if target in cargo_text:
-        cargo_text = cargo_text.replace(target, target + '\nwinreg = "0.55"', 1)
-    else:
-        cargo_text = cargo_text.replace("[dev-dependencies]", target + '\nwinreg = "0.55"\n\n[dev-dependencies]', 1)
-cargo.write_text(cargo_text, encoding="utf-8", newline="\n")
-
-lib_text = lib.read_text(encoding="utf-8")
-if "mod windows_autostart;" not in lib_text:
-    lib_text = lib_text.replace("mod vault;", "mod vault;\nmod windows_autostart;", 1)
-lib_text = re.sub(r'(?m)^\s*\.plugin\(tauri_plugin_autostart::Builder::new\(\)\.build\(\)\)\s*\r?\n', "", lib_text)
-lib.write_text(lib_text, encoding="utf-8", newline="\n")
-
-cmd = commands.read_text(encoding="utf-8")
-cmd = re.sub(r'(?m)^use tauri_plugin_autostart::ManagerExt;\s*\r?\n', "", cmd)
-if "team_share, windows_autostart," not in cmd:
-    cmd = cmd.replace(
-        "cache, desktop, diagnostics, legacy_share, local_services, network_settings, picker, preview, quick_share, remote_import, team_share,",
-        "cache, desktop, diagnostics, legacy_share, local_services, network_settings, picker, preview, quick_share, remote_import, team_share, windows_autostart,",
-        1,
-    )
-cmd = cmd.replace("app.autolaunch().is_enabled()", "windows_autostart::is_enabled()")
-cmd = cmd.replace(
-    """    let manager = app.autolaunch();
-    let autostart_result = if requested_autostart { manager.enable() } else { manager.disable() };
-    autostart_result.map_err(|error| format!("autostart:{error}"))?;
-""",
-    """    let previous_autostart = windows_autostart::is_enabled().unwrap_or(previous.autostart_enabled);
-    windows_autostart::set_enabled(requested_autostart)
-        .map_err(|error| format!("autostart:{error}"))?;
-""",
-)
-cmd = cmd.replace(
-    "saved.autostart_enabled = manager.is_enabled().unwrap_or(requested_autostart);",
-    "saved.autostart_enabled = windows_autostart::is_enabled().unwrap_or(requested_autostart);",
-)
-cmd = cmd.replace(
-    "let _ = if previous.autostart_enabled { manager.enable() } else { manager.disable() };",
-    "let _ = windows_autostart::set_enabled(previous_autostart);",
-)
-commands.write_text(cmd, encoding="utf-8", newline="\n")
-
-autostart.write_text(r'''#[cfg(windows)]
+WINDOWS_AUTOSTART_RS = r'''#[cfg(windows)]
 mod platform {
     use std::{env, io, path::PathBuf};
     use winreg::{enums::HKEY_CURRENT_USER, RegKey};
@@ -70,7 +21,7 @@ mod platform {
 
     fn startup_command() -> Result<String, String> {
         let exe = current_executable()?;
-        Ok(format!("\\\"{}\\\"", exe.display()))
+        Ok(format!("\"{}\"", exe.display()))
     }
 
     fn not_found(error: &io::Error) -> bool {
@@ -124,16 +75,90 @@ mod platform {
 }
 
 pub use platform::{is_enabled, set_enabled};
-''', encoding="utf-8", newline="\n")
+'''
 
-checks = {
-    "old dependency": "tauri-plugin-autostart" in cargo.read_text(encoding="utf-8"),
-    "missing winreg": 'winreg = "0.55"' not in cargo.read_text(encoding="utf-8"),
-    "old plugin": "tauri_plugin_autostart" in lib.read_text(encoding="utf-8"),
-    "old manager": "app.autolaunch()" in commands.read_text(encoding="utf-8"),
-    "missing setter": "windows_autostart::set_enabled(requested_autostart)" not in commands.read_text(encoding="utf-8"),
-}
-failed = [name for name, bad in checks.items() if bad]
-if failed:
-    raise SystemExit("Autostart hotfix verification failed: " + ", ".join(failed))
-print("RD Drive Windows autostart hotfix applied.")
+
+def read(rel: str) -> str:
+    return (ROOT / rel).read_text(encoding='utf-8')
+
+
+def write(rel: str, content: str) -> None:
+    (ROOT / rel).write_text(content, encoding='utf-8', newline='\n')
+
+
+write('src-tauri/src/windows_autostart.rs', WINDOWS_AUTOSTART_RS)
+
+lib = read('src-tauri/src/lib.rs')
+if 'mod windows_autostart;' not in lib:
+    lib = lib.replace('mod vault;\n', 'mod vault;\nmod windows_autostart;\n')
+lib = re.sub(r'^\s*\.plugin\(tauri_plugin_autostart::Builder::new\(\)\.build\(\)\)\s*\n', '', lib, flags=re.M)
+write('src-tauri/src/lib.rs', lib)
+
+commands = read('src-tauri/src/commands.rs')
+commands = commands.replace('use tauri_plugin_autostart::ManagerExt;\n', '')
+if 'use crate::windows_autostart;' not in commands:
+    commands = commands.replace('use serde::Serialize;\n', 'use serde::Serialize;\nuse crate::windows_autostart;\n')
+commands, n_get = re.subn(
+    r'if let Ok\(enabled\) = app\.autolaunch\(\)\.is_enabled\(\) \{\s*record\.autostart_enabled = enabled;\s*\}',
+    'if let Ok(enabled) = windows_autostart::is_enabled() {\n        record.autostart_enabled = enabled;\n    }',
+    commands,
+    count=1,
+    flags=re.S,
+)
+old_update = r'''    let requested_autostart = settings_record.autostart_enabled;
+    let manager = app.autolaunch();
+    let autostart_result = if requested_autostart { manager.enable() } else { manager.disable() };
+    autostart_result.map_err(|error| format!("autostart:{error}"))?;
+
+    match settings::update(&root, &profile_id, settings_record) {
+        Ok(mut saved) => {
+            saved.autostart_enabled = manager.is_enabled().unwrap_or(requested_autostart);
+            desktop_runtime.set_close_to_tray(saved.close_to_tray);
+            Ok(saved)
+        }
+        Err(error) => {
+            let _ = if previous.autostart_enabled { manager.enable() } else { manager.disable() };
+            Err(error.to_string())
+        }
+    }'''
+replacement = r'''    let requested_autostart = settings_record.autostart_enabled;
+    let previous_autostart = windows_autostart::is_enabled().unwrap_or(previous.autostart_enabled);
+    windows_autostart::set_enabled(requested_autostart)
+        .map_err(|error| format!("autostart:{error}"))?;
+
+    match settings::update(&root, &profile_id, settings_record) {
+        Ok(mut saved) => {
+            saved.autostart_enabled = windows_autostart::is_enabled().unwrap_or(requested_autostart);
+            desktop_runtime.set_close_to_tray(saved.close_to_tray);
+            Ok(saved)
+        }
+        Err(error) => {
+            let _ = windows_autostart::set_enabled(previous_autostart);
+            Err(error.to_string())
+        }
+    }'''
+n_update = commands.count(old_update)
+commands = commands.replace(old_update, replacement, 1)
+if n_get != 1:
+    raise SystemExit(f'autostart settings_get patch count: {n_get}')
+if n_update != 1:
+    raise SystemExit(f'autostart settings_update patch count: {n_update}')
+write('src-tauri/src/commands.rs', commands)
+
+cargo = read('src-tauri/Cargo.toml')
+cargo = re.sub(r'^tauri-plugin-autostart\s*=.*\n', '', cargo, flags=re.M)
+if 'winreg = "0.55"' not in cargo:
+    cargo = cargo.replace('[dev-dependencies]', '[target.\\'cfg(windows)\\'.dependencies]\nwinreg = "0.55"\n\n[dev-dependencies]')
+write('src-tauri/Cargo.toml', cargo)
+
+contract = ROOT / 'tests/test_usability_backend_contract.py'
+if contract.exists():
+    test = contract.read_text(encoding='utf-8')
+    test = test.replace("assert 'tauri-plugin-autostart = \"2\"' in cargo", "assert 'winreg = \"0.55\"' in cargo")
+    test = test.replace(
+        "assert 'app.autolaunch()' in commands",
+        "autostart = (ROOT / 'src-tauri' / 'src' / 'windows_autostart.rs').read_text(encoding='utf-8')\n    assert 'windows_autostart::set_enabled' in commands\n    assert 'HKEY_CURRENT_USER' in autostart and 'CurrentVersion\\\\Run' in autostart",
+    )
+    contract.write_text(test, encoding='utf-8', newline='\n')
+
+print('RD Drive Windows autostart repair applied.')
