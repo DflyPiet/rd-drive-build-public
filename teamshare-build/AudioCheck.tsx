@@ -64,6 +64,8 @@ export default function AudioCheck({ isOpen, onClose }: Props) {
               <p className="break-all font-semibold text-on-surface">{current.name}</p>
               <p className="text-xs text-on-surface-variant mt-1">{size(current.size)} · Laufzeit {duration == null ? 'wird ermittelt' : clock(duration)}</p>
             </div>
+            {/* Local audio files have no accompanying caption tracks; never invent one. */}
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <audio ref={player} key={source ?? 'empty'} src={source ?? undefined}
               controls preload="metadata" className="w-full" aria-label="Audiowiedergabe"
               onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
