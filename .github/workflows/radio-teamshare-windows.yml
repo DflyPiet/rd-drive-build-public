@@ -33,6 +33,8 @@ jobs:
           node teamshare-build/apply-enhancements.cjs mirall-src
           node teamshare-build/apply-legal.cjs mirall-src
           node teamshare-build/apply-audio-diagnostics.cjs mirall-src
+          node teamshare-build/apply-slim-ui.cjs mirall-src
+          node teamshare-build/apply-musicdesk.cjs mirall-src
       # The upstream two-peer flow suite is separately sharded and tested on the pinned
       # original revision. Only its renderer is changed in this fork.
       - name: Run upstream unit and invariant tests on Linux
@@ -106,7 +108,7 @@ jobs:
           npm.cmd run typecheck
           if ($LASTEXITCODE -ne 0) { throw "TypeScript check failed" }
 
-      - name: Apply Radio Diabolus 2.2 enhancements
+      - name: Apply Radio Diabolus 2.3 enhancements
         shell: pwsh
         run: |
           node teamshare-build/apply-enhancements.cjs mirall-src
@@ -115,6 +117,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Legal UI build failed" }
           node teamshare-build/apply-audio-diagnostics.cjs mirall-src
           if ($LASTEXITCODE -ne 0) { throw "Local audio diagnostics build failed" }
+          node teamshare-build/apply-slim-ui.cjs mirall-src
+          if ($LASTEXITCODE -ne 0) { throw "Radio Diabolus UI cleanup failed" }
+          node teamshare-build/apply-musicdesk.cjs mirall-src
+          if ($LASTEXITCODE -ne 0) { throw "Music promotions integration failed" }
           $changed = @(git -C mirall-src diff --name-only -- src/shared src/worker src/preload | Where-Object { $_ })
           if ($changed.Count -gt 0) { throw "Transfer engine was modified" }
 
@@ -150,7 +156,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path release | Out-Null
           & $compiler "/DSourceDir=$($dirs[0].FullName)" "/DProjectRoot=$($PWD.Path)" "installer/TeamShare.iss"
           if ($LASTEXITCODE -ne 0) { throw "Inno installer compilation failed" }
-          if (-not (Test-Path 'release/Radio-Diabolus-TeamShare-2.2.0-Setup-x64.exe')) { throw "Setup EXE missing" }
+          if (-not (Test-Path 'release/Radio-Diabolus-TeamShare-2.3.0-Setup-x64.exe')) { throw "Setup EXE missing" }
 
       - name: Package portable EXE with legal source files
         shell: pwsh
@@ -164,11 +170,11 @@ jobs:
           Compress-Archive -Path $dirs[0].FullName -DestinationPath 'release/Radio-Diabolus-TeamShare-Windows-x64-portabel.zip'
           git -C mirall-src archive --format zip -o ../release/Mirall-1.13.0-Originalquellen.zip HEAD
           if ($LASTEXITCODE -ne 0) { throw "Original source archive failed" }
-          git -C mirall-src add -N src/renderer/components/space/AudioCheck.tsx src/renderer/components/space/TeamRoomTemplates.tsx src/renderer/components/space/AudioDiagnostics.tsx src/renderer/components/about/LegalDocuments.tsx assets/brand/radio-diabolus-icon.png
+          git -C mirall-src add -N src/renderer/components/space/AudioCheck.tsx src/renderer/components/space/TeamRoomTemplates.tsx src/renderer/components/space/AudioDiagnostics.tsx src/renderer/components/about/LegalDocuments.tsx src/renderer/components/space/MusicDesk.tsx assets/brand/radio-diabolus-icon.png
           if ($LASTEXITCODE -ne 0) { throw "Source patch staging failed" }
           git -C mirall-src diff --binary | Set-Content 'release/Radio-Diabolus-TeamShare-Aenderungen.patch' -Encoding utf8
           Copy-Item mirall-src/LICENSE release/LICENSE
-          Copy-Item teamshare-build/RELEASE_2.2_DE.md release/README_2.2_DE.md
+          Copy-Item teamshare-build/RELEASE_2.3_DE.md release/README_2.3_DE.md
           'Radio Diabolus TeamShare based on Mirall by Oliver Kohl. AGPL-3.0-or-later. Source: https://github.com/ok/mirall' | Set-Content release/URHEBER-UND-LIZENZHINWEIS.txt
           Get-ChildItem release -File | ForEach-Object {
             "$((Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLowerInvariant())  $($_.Name)"
@@ -177,7 +183,7 @@ jobs:
       - name: Upload EXE and source artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Radio-Diabolus-TeamShare-v2.2.0-Windows-x64
+          name: Radio-Diabolus-TeamShare-v2.3.0-Windows-x64
           path: release/*
           retention-days: 14
           if-no-files-found: error

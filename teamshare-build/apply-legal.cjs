@@ -53,7 +53,7 @@ const legal = [
   '',
 ].join('\n')
 fs.writeFileSync(file(about), content.slice(0,start) + legal + content.slice(end), 'utf8')
-edit(about, "<p className=\"text-sm text-on-surface-variant\">{build.label}</p>", "<p className=\"text-sm text-on-surface-variant\">TeamShare 2.2.0 · Mirall {build.label}</p>")
+edit(about, "<p className=\"text-sm text-on-surface-variant\">{build.label}</p>", "<p className=\"text-sm text-on-surface-variant\">TeamShare 2.3.0 · Mirall {build.label}</p>")
 const langs=['de','en','es','fr','it']
 for (const language of langs) {
   const p = 'src/renderer/locales/'+language+'/common.json'

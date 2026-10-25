@@ -1,7 +1,7 @@
 ; Radio Diabolus TeamShare, unsigned single-user installer.
 ; Compile with: ISCC.exe "/DSourceDir=C:\path\to\Mirall-package" "/DProjectRoot=C:\path\to\repo" installer\TeamShare.iss
 #define Brand "Radio Diabolus TeamShare"
-#define ReleaseVersion "2.2.0"
+#define ReleaseVersion "2.3.0"
 #ifndef SourceDir
   #error SourceDir must point at packaged Windows application folder
 #endif
@@ -23,7 +23,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Compression=lzma2
 SolidCompression=yes
 OutputDir={#ProjectRoot}\release
-OutputBaseFilename=Radio-Diabolus-TeamShare-2.2.0-Setup-x64
+OutputBaseFilename=Radio-Diabolus-TeamShare-2.3.0-Setup-x64
 SetupIconFile={#ProjectRoot}\mirall-src\resources\win32\icon.ico
 LicenseFile={#ProjectRoot}\mirall-src\LICENSE
 WizardStyle=modern
