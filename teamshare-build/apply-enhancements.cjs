@@ -37,5 +37,5 @@ change('src/renderer/screens/SpacesScreen.tsx',
   "const { spaces, loading, createSpace } = useSpaces()")
 change('src/renderer/screens/SpacesScreen.tsx',
   "      <BackupPromptCard />",
-  "      <BackupPromptCard />\n      <TeamRoomTemplates existingNames={spaces.map(s => s.name)} enabled={!loading && !createControl.attrs.ariaDisabled} createSpace={createSpace} onCreated={onSelectSpace} />")
+  "      <BackupPromptCard />\n      <TeamRoomTemplates existingNames={spaces.map(s => s.name)} enabled={!loading && !createControl.held} createSpace={createSpace} onCreated={onSelectSpace} />")
 console.log('Radio Diabolus TeamShare feature patch applied. No transfer protocol changes.')
