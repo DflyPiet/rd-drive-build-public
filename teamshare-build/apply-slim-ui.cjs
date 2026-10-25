@@ -5,7 +5,7 @@ const path=require('path')
 const root=path.resolve(process.argv[2]||'mirall-src')
 const full=p=>path.join(root,p)
 function change(p,oldValue,newValue) {
-  const s=fs.readFileSync(full(p),'utf8')
+  const s=fs.readFileSync(full(p),'utf8').replace(/\r\n/g,'\n')
   if(!s.includes(oldValue))throw Error('Unexpected pinned Mirall source: '+p+' | '+oldValue.slice(0,80))
   fs.writeFileSync(full(p),s.replace(oldValue,newValue),'utf8')
 }
