@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - build/radio-diabolus-teamshare-win
+      - feature/teamshare-24-musicdesk-backup
   workflow_dispatch:
 
 permissions:
@@ -123,6 +124,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Music promotions integration failed" }
           $changed = @(git -C mirall-src diff --name-only -- src/shared src/worker src/preload | Where-Object { $_ })
           if ($changed.Count -gt 0) { throw "Transfer engine was modified" }
+
+      - name: Typecheck final application with all branding and feature patches
+        shell: pwsh
+        working-directory: mirall-src
+        run: |
+          npm.cmd run typecheck
+          if ($LASTEXITCODE -ne 0) { throw "Final application TypeScript check failed" }
 
       - name: Run Windows identity, sharing and resume smoke tests (required)
         shell: pwsh
