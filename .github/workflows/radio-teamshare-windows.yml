@@ -10,7 +10,37 @@ permissions:
   contents: read
 
 jobs:
+  upstream-linux-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+      - name: Install npm 11
+        run: npm install --global npm@11
+      - name: Checkout pinned Mirall source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init mirall-src
+          git -C mirall-src remote add origin https://github.com/ok/mirall.git
+          git -C mirall-src fetch --depth 1 origin 9f5ae55a5b7c967d1a6dbd6e52a56a7acd5aa907
+          git -C mirall-src checkout --detach FETCH_HEAD
+          test "$(git -C mirall-src rev-parse HEAD)" = '9f5ae55a5b7c967d1a6dbd6e52a56a7acd5aa907'
+          node teamshare-build/apply-brand.cjs mirall-src
+          node teamshare-build/apply-enhancements.cjs mirall-src
+      - name: Install dependencies and run all upstream tests on Linux
+        shell: bash
+        working-directory: mirall-src
+        run: |
+          set -euo pipefail
+          npm ci
+          npm test
+
   windows:
+    needs: upstream-linux-tests
     runs-on: windows-2022
     timeout-minutes: 90
     steps:
@@ -80,12 +110,12 @@ jobs:
           $changed = @(git -C mirall-src diff --name-only -- src/shared src/worker src/preload | Where-Object { $_ })
           if ($changed.Count -gt 0) { throw "Transfer engine was modified" }
 
-      - name: Run complete upstream test suite
+      - name: Run Windows peer tests (required)
         shell: pwsh
         working-directory: mirall-src
         run: |
-          npm.cmd test
-          if ($LASTEXITCODE -ne 0) { throw "Mirall test suite failed" }
+          npm.cmd run test:bare
+          if ($LASTEXITCODE -ne 0) { throw "Windows P2P integration tests failed" }
 
       - name: Compile branded Windows EXE
         shell: pwsh
@@ -95,13 +125,6 @@ jobs:
         run: |
           npm.cmd run package
           if ($LASTEXITCODE -ne 0) { throw "Windows package build failed" }
-
-      - name: Run P2P integration tests on Windows (required)
-        shell: pwsh
-        working-directory: mirall-src
-        run: |
-          npm.cmd run test:bare
-          if ($LASTEXITCODE -ne 0) { throw "P2P integration tests failed (separately reported)" }
 
       - name: Prepare unsigned Windows installer
         shell: pwsh
