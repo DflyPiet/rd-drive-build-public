@@ -55,11 +55,11 @@
   const logo = [
     'interface LogoProps {className?:string;label?:string}',
     'export default function Logo({className="h-7 w-auto",label}:LogoProps){',
-    'return <span className={"inline-flex min-w-0 shrink-0 items-center gap-2.5 align-middle "+className} role={label?"img":undefined} aria-label={label} aria-hidden={label?undefined:true}>',
-    '<img src="./brand/radio-diabolus-icon.png" alt="" aria-hidden="true" draggable={false} className="block h-full w-auto shrink-0 rounded-[19%]"/>',
-    '<span className="flex shrink-0 flex-col justify-center leading-none whitespace-nowrap text-left">',
-    '<span className="font-headline text-[13px] tracking-[.06em] font-extrabold text-on-surface">RADIO <span className="text-[#f04454]">DIABOLUS</span></span>',
-    '<span className="font-headline text-[10px] tracking-[.2em] font-bold text-on-surface-variant mt-0.5">TEAMSHARE</span></span></span>}',
+    '  return <span className={"inline-flex min-w-0 shrink-0 items-center gap-2.5 align-middle "+className} role={label?"img":undefined} aria-label={label} aria-hidden={label?undefined:true}>',
+    '    <img src="./brand/radio-diabolus-icon.png" alt="" aria-hidden="true" draggable={false} className="block h-full w-auto shrink-0 rounded-[19%]"/>',
+    '    <span className="flex shrink-0 flex-col justify-center leading-none whitespace-nowrap text-left">',
+    '      <span className="font-headline text-[13px] tracking-[.06em] font-extrabold text-on-surface">RADIO <span className="text-[#f04454]">DIABOLUS</span></span>',
+    '      <span className="font-headline text-[10px] tracking-[.2em] font-bold text-on-surface-variant mt-0.5">TEAMSHARE</span></span></span>}',
   ].join('\n');
   write('src/renderer/components/primitives/Logo.tsx',logo+'\n');
   update('src/renderer/screens/OnboardingScreen.tsx',s=>swap(s,'<Logo label="Mirall" />','<Logo label="'+BRAND+'" />'));
