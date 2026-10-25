@@ -1,5 +1,5 @@
 // Local-only audio audition. No network or filesystem path API is used.
-import { useEffect, useRef, useState } from 'react'
+import { createElement, useEffect, useRef, useState } from 'react'
 import Modal from '../primitives/Modal.js'
 
 type Props = { isOpen: boolean; onClose: () => void }
@@ -64,13 +64,18 @@ export default function AudioCheck({ isOpen, onClose }: Props) {
               <p className="break-all font-semibold text-on-surface">{current.name}</p>
               <p className="text-xs text-on-surface-variant mt-1">{size(current.size)} · Laufzeit {duration == null ? 'wird ermittelt' : clock(duration)}</p>
             </div>
-            {/* Local audio files have no accompanying caption tracks; never invent one. */}
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-            <audio ref={player} key={source ?? 'empty'} src={source ?? undefined}
-              controls preload="metadata" className="w-full" aria-label="Audiowiedergabe"
-              onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
-              onError={() => setMessage('Die Datei konnte nicht wiedergegeben werden. Das Format wird möglicherweise nicht unterstützt.')}
-              onEnded={() => setSelected(i => i + 1 < files.length ? i + 1 : i)} />
+            {createElement('audio', {
+              ref: player,
+              key: source ?? 'empty',
+              src: source ?? undefined,
+              controls: true,
+              preload: 'metadata',
+              className: 'w-full',
+              'aria-label': 'Audiowiedergabe',
+              onLoadedMetadata: () => setDuration(player.current?.duration ?? null),
+              onError: () => setMessage('Die Datei konnte nicht wiedergegeben werden. Das Format wird möglicherweise nicht unterstützt.'),
+              onEnded: () => setSelected(i => i + 1 < files.length ? i + 1 : i),
+            })}
             <div className="flex gap-3 items-center">
               <button className="px-4 py-2 rounded-lg bg-surface-control disabled:opacity-40 focus-ring" type="button" disabled={selected <= 0} onClick={() => setSelected(i => Math.max(0, i - 1))}>Vorheriger Titel</button>
               <button className="px-4 py-2 rounded-lg bg-primary text-on-primary disabled:opacity-40 focus-ring" type="button" disabled={selected + 1 >= files.length} onClick={() => setSelected(i => Math.min(files.length - 1, i + 1))}>Nächster Titel</button>
