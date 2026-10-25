@@ -66,7 +66,12 @@ export default function AudioDiagnostics({ file }: { file: File }) {
     } catch {
       if(id===request.current) setError('Die Datei konnte nicht decodiert werden. Die Wiedergabe kann trotzdem funktionieren.')
     } finally {
-      if(context) await context.close().catch(() => undefined)
+      if (context) {
+        try { await context.close() }
+        catch {
+          if (id === request.current) setError('Die Audio-Ressourcen konnten nicht vollständig freigegeben werden.')
+        }
+      }
       if(id===request.current) setBusy(false)
     }
   }
