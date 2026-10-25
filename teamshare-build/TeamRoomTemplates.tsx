@@ -46,7 +46,7 @@ export default function TeamRoomTemplates({ existingNames, enabled, createSpace,
           const present = existing.has(room.name.toLocaleLowerCase())
           return <div key={room.name} className="flex gap-3 items-center justify-between bg-surface-container-lowest p-3 rounded-lg">
             <div><p className="font-medium text-sm">{room.name}</p><p className="text-xs text-on-surface-variant">{room.description}</p></div>
-            <button type="button" onClick={() => void add(room)} disabled={!enabled || !!busy || present}
+            <button type="button" onClick={() => { add(room).catch(() => setError('Teamraum konnte nicht erstellt werden.')) }} disabled={!enabled || !!busy || present}
               className="shrink-0 px-4 py-2 text-sm rounded-lg bg-primary text-on-primary disabled:opacity-40 focus-ring">
               {present ? 'Vorhanden' : busy === room.name ? 'Erstelle…' : 'Anlegen'}</button>
           </div>
