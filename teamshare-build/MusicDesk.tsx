@@ -1,6 +1,6 @@
 // Local-first Radio Diabolus music promotions desk.
 // Records are local IndexedDB metadata; no P2P transfer or server sync is claimed.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Modal from '../primitives/Modal.js'
 type Status = 'Neu' | 'In Prüfung' | 'Freigegeben' | 'Erledigt'
 type Track = {
@@ -136,6 +136,16 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
   const [error,setError]=useState<string|null>(null)
   const [selected,setSelected]=useState<string|null>(null)
   const [busy,setBusy]=useState(false)
+  const sessionFiles=useRef(new Map<string,File>())
+  const [playUrl,setPlayUrl]=useState<string|null>(null)
+  const [playingName,setPlayingName]=useState('')
+  useEffect(()=>()=>{if(playUrl)URL.revokeObjectURL(playUrl)},[playUrl])
+  function playTrack(track:Track){
+    const file=sessionFiles.current.get(track.id)
+    if(!file){setError('Die Datei ist nicht mehr lokal ausgewählt. Bitte die Audiodatei erneut importieren, um sie hier abzuspielen.');return}
+    const url=URL.createObjectURL(file)
+    setPlayUrl(url);setPlayingName(track.fileName);setError(null)
+  }
   useEffect(()=>{
     if(!isOpen)return
     let active=true
@@ -168,7 +178,7 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
         const parts=name.split(' - ')
         const tags=await readId3v1(f).catch(()=>null)
         const t:Track={id:crypto.randomUUID(),artist:tags?.artist|| (parts.length>1?parts[0].trim():''),title:tags?.title||(parts.length>1?parts.slice(1).join(' - ').trim():name),album:tags?.album||'',label:'',releaseDate:'',status:'Neu',path,fileName:f.name,fileSize:f.size,notes:'',addedAt:Date.now()+added}
-        await storeTrack(t);current.push(t);added++
+        await storeTrack(t);sessionFiles.current.set(t.id,f);current.push(t);added++
       }
       setAll(current)
       if(added===0)setError('Die ausgewählten Dateien sind bereits in der lokalen Bibliothek.')
@@ -216,6 +226,7 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
         <button type="button" onClick={m3u} className="bg-surface-control px-4 py-2 rounded-lg text-sm focus-ring">RadioBOSS-M3U8 exportieren</button>
       </div>
       <p className="text-xs text-on-surface-variant">Der RadioBOSS-Export enthält freigegebene Dateien mit lokalem Windows-Pfad. Playlist in RadioBOSS importieren. Dateien dürfen danach nicht verschoben werden.</p>
+      {playUrl&&<div className="rounded-xl bg-surface-container-low p-3 space-y-2"><p className="text-sm font-semibold">Wiedergabe: {playingName}</p><audio key={playUrl} src={playUrl} autoPlay controls className="w-full" onError={()=>setError('Audiocodec oder Datei konnte nicht gelesen werden.')}/><button type="button" className="bg-surface-control rounded-lg px-3 py-2 text-sm" onClick={()=>setPlayUrl(null)}>Player schließen</button></div>}
       {error&&<p role="alert" className="rounded-lg bg-error-container p-3 text-on-error-container text-sm">{error}</p>}
       <div className="flex flex-wrap gap-3">
         <input value={search} onChange={e=>setSearch(e.currentTarget.value)} aria-label="Musik durchsuchen" placeholder="Suche Interpret, Titel, Label…" className="bg-surface-control rounded-lg p-2 flex-1 min-w-40 text-sm focus-ring"/>
@@ -227,7 +238,7 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div className="max-h-96 overflow-y-auto space-y-2">
           {visible.slice(0,250).map(t=><div key={t.id} className="rounded-lg bg-surface-container-low p-3 flex items-center gap-3">
-            <button type="button" onClick={()=>setSelected(t.id)} aria-pressed={selected===t.id} className="flex-1 text-left min-w-0 focus-ring rounded">
+            <button type="button" onClick={()=>setSelected(t.id)} onDoubleClick={()=>playTrack(t)} title="Doppelklick: Audio abspielen, sofern lokal ausgewählt" aria-pressed={selected===t.id} className="flex-1 text-left min-w-0 focus-ring rounded">
               <p className="text-sm font-semibold truncate">{t.artist? t.artist+' · ':''}{t.title}</p>
               <p className="text-xs text-on-surface-variant truncate">{t.label||'Ohne Label'} · {formatBytes(t.fileSize)}</p>
             </button>
@@ -238,6 +249,7 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
         <div className="bg-surface-container-low rounded-xl p-4 space-y-3">
           {selectedTrack? <>
             <p className="font-semibold">Details bearbeiten</p>
+            <button type="button" className="rounded-lg bg-surface-control px-3 py-2 text-sm focus-ring" onClick={()=>playTrack(selectedTrack)}>Audio abspielen</button>
             <div className="grid grid-cols-2 gap-3">
               {field('Interpret','artist')}{field('Titel','title')}{field('Album','album')}{field('Label','label')}
             </div>
