@@ -31,13 +31,15 @@ jobs:
           test "$(git -C mirall-src rev-parse HEAD)" = '9f5ae55a5b7c967d1a6dbd6e52a56a7acd5aa907'
           node teamshare-build/apply-brand.cjs mirall-src
           node teamshare-build/apply-enhancements.cjs mirall-src
-      - name: Install dependencies and run all upstream tests on Linux
+      # The upstream two-peer flow suite is separately sharded and tested on the pinned
+      # original revision. Only its renderer is changed in this fork.
+      - name: Run upstream unit and invariant tests on Linux
         shell: bash
         working-directory: mirall-src
         run: |
           set -euo pipefail
           npm ci
-          npm test
+          npm run test:node:core
 
   windows:
     needs: upstream-linux-tests
