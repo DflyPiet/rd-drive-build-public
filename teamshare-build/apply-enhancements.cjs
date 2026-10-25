@@ -47,3 +47,9 @@ change('test/unit/backup-settings.test.js',
 change('test/unit/theme-bootstrap.test.js',
   "t.is(bootScheme({ hasBridge: false, prefersDark: false }), 'light')",
   "t.is(bootScheme({ hasBridge: false, prefersDark: false }), 'dark')")
+
+// Upstream's test runner launches a Unix shim without .cmd. Windows needs npm's
+// cmd shim; this is a test harness correction, not an application change.
+change('test/bare-runner.mjs',
+  "const child = spawn(path.join('node_modules', '.bin', 'brittle-bare'), [file], {",
+  "const runner = path.join('node_modules', '.bin', process.platform === 'win32' ? 'brittle-bare.cmd' : 'brittle-bare')\n    const child = spawn(runner, [file], { shell: process.platform === 'win32',")
