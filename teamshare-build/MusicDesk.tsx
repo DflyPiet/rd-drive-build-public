@@ -106,7 +106,7 @@ async function importBackup(file:File):Promise<Track[]> {
     if(keys.some(k=>typeof t[k]!=='string'||(t[k] as string).length>10000)||typeof t.fileSize!=='number'||!Number.isFinite(t.fileSize)||t.fileSize<0||typeof t.addedAt!=='number'||!Number.isFinite(t.addedAt)||!statuses.includes(t.status as Status))throw Error('Ungültiger Datensatz.')
     if(!(t.id as string)||ids.has(t.id as string))throw Error('Doppelte oder leere Datensatz-ID.')
     ids.add(t.id as string)
-    records.push(t as Track)
+    records.push(t as unknown as Track)
   }
   return records
 }
