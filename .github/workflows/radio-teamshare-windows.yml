@@ -132,6 +132,8 @@ jobs:
           Compress-Archive -Path $dirs[0].FullName -DestinationPath 'release/Radio-Diabolus-TeamShare-Windows-x64-portabel.zip'
           git -C mirall-src archive --format zip -o ../release/Mirall-1.13.0-Originalquellen.zip HEAD
           if ($LASTEXITCODE -ne 0) { throw "Original source archive failed" }
+          git -C mirall-src add -N src/renderer/components/team/AudioCheck.tsx src/renderer/components/team/TeamRoomTemplates.tsx assets/brand/radio-diabolus-icon.png
+          if ($LASTEXITCODE -ne 0) { throw "Source patch staging failed" }
           git -C mirall-src diff --binary | Set-Content 'release/Radio-Diabolus-TeamShare-Aenderungen.patch' -Encoding utf8
           Copy-Item mirall-src/LICENSE release/LICENSE
           'Radio Diabolus TeamShare based on Mirall by Oliver Kohl. AGPL-3.0-or-later. Source: https://github.com/ok/mirall' | Set-Content release/URHEBER-UND-LIZENZHINWEIS.txt
