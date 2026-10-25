@@ -1,0 +1,108 @@
+name: Radio Diabolus TeamShare Windows EXE
+
+on:
+  push:
+    branches:
+      - build/radio-diabolus-teamshare-win
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - name: Check out Radio Diabolus build files
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22.23.3
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tools
+        shell: pwsh
+        run: |
+          npm.cmd install --global npm@11
+          if ($LASTEXITCODE -ne 0) { throw "npm 11 installation failed" }
+          python -m pip install --disable-pip-version-check pillow==11.3.0
+          if ($LASTEXITCODE -ne 0) { throw "Pillow installation failed" }
+          node --version
+          npm.cmd --version
+
+      - name: Fetch pinned upstream Mirall source
+        shell: pwsh
+        run: |
+          git init mirall-src
+          if ($LASTEXITCODE -ne 0) { throw "Git init failed" }
+          git -C mirall-src remote add origin https://github.com/ok/mirall.git
+          git -C mirall-src fetch --depth 1 origin 9f5ae55a5b7c967d1a6dbd6e52a56a7acd5aa907
+          if ($LASTEXITCODE -ne 0) { throw "Unable to fetch pinned Mirall commit" }
+          git -C mirall-src checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE -ne 0) { throw "Git checkout failed" }
+          if ((git -C mirall-src rev-parse HEAD).Trim() -ne '9f5ae55a5b7c967d1a6dbd6e52a56a7acd5aa907') { throw "Unexpected upstream revision" }
+
+      - name: Apply Radio Diabolus branding and original icon
+        shell: pwsh
+        run: |
+          node teamshare-build/apply-brand.cjs mirall-src
+          if ($LASTEXITCODE -ne 0) { throw "Branding failed" }
+          python teamshare-build/generate-icons.py
+          if ($LASTEXITCODE -ne 0) { throw "Icon generation failed" }
+          if (-not (Test-Path 'mirall-src/resources/win32/icon.ico')) { throw "Branding icon missing" }
+          if (-not (Test-Path 'mirall-src/assets/brand/radio-diabolus-icon.png')) { throw "Renderer icon missing" }
+          if ((git -C mirall-src diff --name-only -- src/shared src/worker src/preload).Trim()) { throw "Upstream transfer engine was modified" }
+
+      - name: Install dependencies and run upstream tests
+        shell: pwsh
+        working-directory: mirall-src
+        run: |
+          npm.cmd ci
+          if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
+          npm.cmd test
+          if ($LASTEXITCODE -ne 0) { throw "Mirall tests failed" }
+
+      - name: Compile branded Windows EXE
+        shell: pwsh
+        working-directory: mirall-src
+        env:
+          UPGRADE_KEY: none
+        run: |
+          npm.cmd run package
+          if ($LASTEXITCODE -ne 0) { throw "Windows package build failed" }
+
+      - name: Package portable EXE with legal source files
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          $dirs = @(Get-ChildItem 'mirall-src/out' -Directory | Where-Object { $_.Name -like '*win32-x64' })
+          if ($dirs.Count -ne 1) { throw "Expected one Windows build folder" }
+          $exe = Join-Path $dirs[0].FullName 'Radio Diabolus TeamShare.exe'
+          if (-not (Test-Path $exe)) { throw "Windows EXE was not created" }
+          Compress-Archive -Path $dirs[0].FullName -DestinationPath 'release/Radio-Diabolus-TeamShare-Windows-x64-portabel.zip'
+          git -C mirall-src archive --format zip -o ../release/Mirall-1.13.0-Originalquellen.zip HEAD
+          if ($LASTEXITCODE -ne 0) { throw "Original source archive failed" }
+          git -C mirall-src diff --binary | Set-Content 'release/Radio-Diabolus-TeamShare-Aenderungen.patch' -Encoding utf8
+          Copy-Item mirall-src/LICENSE release/LICENSE
+          'Radio Diabolus TeamShare based on Mirall by Oliver Kohl. AGPL-3.0-or-later. Source: https://github.com/ok/mirall' | Set-Content release/URHEBER-UND-LIZENZHINWEIS.txt
+          Get-ChildItem release -File | ForEach-Object {
+            "$((Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLowerInvariant())  $($_.Name)"
+          } | Set-Content release/SHA256SUMS.txt -Encoding ascii
+
+      - name: Upload EXE and source artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Radio-Diabolus-TeamShare-Windows-x64
+          path: release/*
+          retention-days: 14
+          if-no-files-found: error
