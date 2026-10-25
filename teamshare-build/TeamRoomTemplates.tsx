@@ -8,6 +8,9 @@ const ROOMS: Room[] = [
   { name: 'Radio Diabolus · Bemusterungen', icon: 'folder', description: 'Neue Musik der Labels und Bands' },
   { name: 'Radio Diabolus · Artwork', icon: 'palette', description: 'Cover, Social-Media-Motive und Grafiken' },
   { name: 'Radio Diabolus · Team', icon: 'work', description: 'Redaktionelle Unterlagen und Abstimmung' },
+  { name: 'Radio Diabolus · Leitung (Zugangsbereich)', icon: 'work', description: 'Separater privater Raum mit eigenem Kryptoschlüssel. Nur Leitung einladen.' },
+  { name: 'Radio Diabolus · Moderatoren (Zugangsbereich)', icon: 'group', description: 'Separater verschlüsselter Raum für Moderatoren. Mitgliedschaft über Einladungen.' },
+  { name: 'Radio Diabolus · Gäste (Zugangsbereich)', icon: 'folder', description: 'Separater verschlüsselter Raum für Gäste. Kein Zugriff auf andere Räume ohne Freigabe.' },
 ]
 type Props = {
   existingNames: string[]
@@ -41,7 +44,7 @@ export default function TeamRoomTemplates({ existingNames, enabled, createSpace,
         <span className="text-sm text-on-surface-variant">{expanded ? 'Schließen' : 'Anzeigen'}</span>
       </button>
       {expanded && <div className="px-4 pb-4 space-y-2">
-        <p className="text-sm text-on-surface-variant">Räume werden erst durch einen Klick erstellt. Jeder Raum hat eigene Freigaben und Einladungen.</p>
+        <p className="text-sm text-on-surface-variant">Räume werden erst durch einen Klick erstellt. Jeder Raum besitzt eigene Schlüssel und Mitgliedschaftsfreigaben. Leitung, Moderatoren und Gäste sind eigenständige Zugangsbereiche, keine Rollenberechtigungen für Aktionen innerhalb desselben Raumes.</p>
         {ROOMS.map(room => {
           const present = existing.has(room.name.toLocaleLowerCase())
           return <div key={room.name} className="flex gap-3 items-center justify-between bg-surface-container-lowest p-3 rounded-lg">

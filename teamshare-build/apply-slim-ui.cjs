@@ -79,4 +79,15 @@ for(const lang of ['de','en','es','fr','it']){
  for(const k of ['sendFirstFiles','createSpace','joinSpace'])delete dict.docs[k]
  fs.writeFileSync(full(p),JSON.stringify(dict,null,2)+'\n')
 }
+// The native Help menu intentionally omits Documentation and Send Feedback.
+const testMenu='test/unit/app-menu.test.js'
+change(testMenu,
+  "test('Help submenu always carries the cross-platform items', (t) => {",
+  "test('Help menu omits documentation and feedback in Radio Diabolus TeamShare', (t) => {")
+change(testMenu,
+  "t.ok(findInSubmenu(help, 'Documentation'), `${platform}: Documentation present`)",
+  "t.absent(findInSubmenu(help, 'Documentation'), `${platform}: no documentation menu link`)")
+change(testMenu,
+  "t.ok(findInSubmenu(help, 'Send Feedback…'), `${platform}: Send Feedback present`)",
+  "t.absent(findInSubmenu(help, 'Send Feedback…'), `${platform}: no feedback menu link`)")
 console.log('Requested About/legal, feedback and documentation navigation removed. AGPL stays in distributed source and license files.')

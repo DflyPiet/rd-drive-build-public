@@ -17,7 +17,8 @@
 
 - RadioBOSS-Integration: funktionierender M3U8-Dateiexport zum manuellen Import. Keine aktive Steuerung oder Synchronisierung der RadioBOSS-Mediathek.
 - Musikdatenbank: lokal je Computer. Kein teamweiter Metadatenabgleich, keine ID3-Erkennung und keine zentrale Rechteverwaltung.
-- Kryptographisch differenzierte Teamrollen fehlen. Bestehende kryptographisch geschützte Mirall-Raummitgliedschaft ist keine granulare Admin-/Moderator-/Gast-Rollenverwaltung. Keine bloße UI-Scheinberechtigung wurde eingeführt.
+- Drei zusätzliche kryptographisch getrennte Zugangsbereiche für Leitung, Moderatoren und Gäste lassen sich nun mit separaten Mirall-Raumschlüsseln erstellen. Das ist ein funktionierendes, raumbasiertes Zugriffsmodell, aber keine per Aktion erzwungene Rollensteuerung.
+- Kryptographisch differenzierte Teamrollen innerhalb desselben Raumes fehlen. Bestehende kryptographisch geschützte Mirall-Raummitgliedschaft ist keine granulare Admin-/Moderator-/Gast-Rollenverwaltung. Keine bloße UI-Scheinberechtigung wurde eingeführt.
 - Mirall-Schlüsselrotation nach dem Entfernen eines Mitglieds ist noch offen: https://github.com/ok/mirall/issues/395
 - Automatische Updates sind deaktiviert (UPGRADE_KEY=none). Ein unabhängiger signierter Updatekanal erfordert private Signaturschlüssel, Release-Infrastruktur und zusätzliche Sicherheitsprüfungen.
 
