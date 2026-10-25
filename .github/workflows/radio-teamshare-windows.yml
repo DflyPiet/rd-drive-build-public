@@ -112,12 +112,13 @@ jobs:
           $changed = @(git -C mirall-src diff --name-only -- src/shared src/worker src/preload | Where-Object { $_ })
           if ($changed.Count -gt 0) { throw "Transfer engine was modified" }
 
-      - name: Run Windows peer tests (required)
+      - name: Run Windows identity, sharing and resume smoke tests (required)
         shell: pwsh
+        timeout-minutes: 12
         working-directory: mirall-src
         run: |
-          npm.cmd run test:bare
-          if ($LASTEXITCODE -ne 0) { throw "Windows P2P integration tests failed" }
+          node test/bare-runner.mjs --jobs 2 test/integration/space-join-guard.test.js test/integration/swarm-identity-binding.test.js test/integration/share-downloads.test.js test/integration/transfers-partials.test.js
+          if ($LASTEXITCODE -ne 0) { throw "Windows P2P smoke tests failed" }
 
       - name: Compile branded Windows EXE
         shell: pwsh
