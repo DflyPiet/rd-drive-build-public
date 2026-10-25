@@ -86,6 +86,11 @@ function exportM3u(tracks:Track[]) {
   const content=['#EXTM3U',...valid.flatMap(t=>['#EXTINF:-1,'+clean((t.artist ? t.artist+' - ':'')+t.title),clean(t.path)])].join('\r\n')+'\r\n'
   downloadText('\uFEFF'+content,'Radio-Diabolus-RadioBOSS-Playlist.m3u8','audio/x-mpegurl;charset=utf-8')
 }
+function exportBackup(tracks:Track[]) {
+  // JSON preserves all fields, unlike the reduced CSV export.
+  const payload={format:'radio-diabolus-teamshare-musicdesk',schemaVersion:1,exportedAt:new Date().toISOString(),tracks}
+  downloadText(JSON.stringify(payload,null,2),'Radio-Diabolus-Bemusterungen-Backup.json','application/json;charset=utf-8')
+}
 const formatBytes=(n:number)=>(n/(1024*1024)).toFixed(1)+' MB'
 function stripName(name:string) {return name.replace(/\.[^.]+$/,'').replace(/[_]+/g,' ').trim()}
 export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>void}) {
@@ -165,6 +170,7 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
           {busy?'Importiere…':'Musikdateien einlesen'}
           <input type="file" multiple accept="audio/*,.mp3,.flac,.wav,.aiff,.ogg,.m4a,.aac" disabled={busy} className="sr-only" onChange={e=>{importFiles(e.currentTarget.files).catch(err=>setError(String(err)));e.currentTarget.value=''}} />
         </label>
+        <button type="button" onClick={()=>exportBackup(all)} className="bg-surface-control px-4 py-2 rounded-lg text-sm focus-ring">Vollständiges JSON-Backup</button>
         <button type="button" onClick={()=>exportCsv(visible)} className="bg-surface-control px-4 py-2 rounded-lg text-sm focus-ring">CSV exportieren</button>
         <button type="button" onClick={m3u} className="bg-surface-control px-4 py-2 rounded-lg text-sm focus-ring">RadioBOSS-M3U8 exportieren</button>
       </div>
