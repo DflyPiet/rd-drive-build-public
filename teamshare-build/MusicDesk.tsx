@@ -10,6 +10,14 @@ type Track = {
 }
 const statuses: Status[] = ['Neu', 'In Prüfung', 'Freigegeben', 'Erledigt']
 const AUDIO=/\.(mp3|flac|wav|aiff?|ogg|m4a|aac)$/i
+// Read legacy ID3v1 metadata without loading an entire audio file into memory.
+async function readId3v1(file:File):Promise<{title:string;artist:string;album:string}|null> {
+  if(!/\.mp3$/i.test(file.name)||file.size<128)return null
+  const tail=new Uint8Array(await file.slice(file.size-128).arrayBuffer())
+  if(String.fromCharCode(...tail.slice(0,3))!=='TAG')return null
+  const decode=(start:number,length:number)=>new TextDecoder('windows-1252').decode(tail.slice(start,start+length)).replace(/\0/g,'').trim()
+  return {title:decode(3,30),artist:decode(33,30),album:decode(63,30)}
+}
 const dbName='rd-teamshare-musicdesk-v1'
 const storeName='bemusterungen'
 function openDB(): Promise<IDBDatabase> {
@@ -158,7 +166,8 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
         known.add(key)
         const name=stripName(f.name)
         const parts=name.split(' - ')
-        const t:Track={id:crypto.randomUUID(),artist:parts.length>1?parts[0].trim():'',title:parts.length>1?parts.slice(1).join(' - ').trim():name,album:'',label:'',releaseDate:'',status:'Neu',path,fileName:f.name,fileSize:f.size,notes:'',addedAt:Date.now()+added}
+        const tags=await readId3v1(f).catch(()=>null)
+        const t:Track={id:crypto.randomUUID(),artist:tags?.artist|| (parts.length>1?parts[0].trim():''),title:tags?.title||(parts.length>1?parts.slice(1).join(' - ').trim():name),album:tags?.album||'',label:'',releaseDate:'',status:'Neu',path,fileName:f.name,fileSize:f.size,notes:'',addedAt:Date.now()+added}
         await storeTrack(t);current.push(t);added++
       }
       setAll(current)
