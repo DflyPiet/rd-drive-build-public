@@ -5,7 +5,7 @@ const path = require('path')
 const root = path.resolve(process.argv[2] || 'mirall-src')
 function file(p) { return path.join(root, p) }
 function edit(p, before, after) {
-  const source = fs.readFileSync(file(p), 'utf8')
+  const source = fs.readFileSync(file(p), 'utf8').replace(/\r\n/g, '\n')
   if (!source.includes(before)) throw new Error('Expected upstream source not found: ' + p + ' ' + before.slice(0,100))
   const result = source.replace(before, after)
   if (result === source) throw new Error('Patch failed: ' + p)
