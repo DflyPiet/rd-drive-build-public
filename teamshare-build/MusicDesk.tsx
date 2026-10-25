@@ -91,6 +91,34 @@ function exportBackup(tracks:Track[]) {
   const payload={format:'radio-diabolus-teamshare-musicdesk',schemaVersion:1,exportedAt:new Date().toISOString(),tracks}
   downloadText(JSON.stringify(payload,null,2),'Radio-Diabolus-Bemusterungen-Backup.json','application/json;charset=utf-8')
 }
+async function importBackup(file:File):Promise<Track[]> {
+  if(file.size>8*1024*1024)throw Error('Backup ist zu groß (maximal 8 MB).')
+  const data:unknown=JSON.parse(await file.text())
+  if(!data||typeof data!=='object')throw Error('Ungültiges Backup.')
+  const v=data as {format?:unknown;schemaVersion?:unknown;tracks?:unknown}
+  if(v.format!=='radio-diabolus-teamshare-musicdesk'||v.schemaVersion!==1||!Array.isArray(v.tracks)||v.tracks.length>3000)throw Error('Unbekanntes oder beschädigtes Backup.')
+  const keys=['id','title','artist','album','label','releaseDate','status','path','fileName','notes']
+  const ids=new Set<string>()
+  const records:Track[]=[]
+  for(const item of v.tracks){
+    if(!item||typeof item!=='object')throw Error('Ungültiger Datensatz.')
+    const t=item as Record<string,unknown>
+    if(keys.some(k=>typeof t[k]!=='string'||(t[k] as string).length>10000)||typeof t.fileSize!=='number'||!Number.isFinite(t.fileSize)||t.fileSize<0||typeof t.addedAt!=='number'||!Number.isFinite(t.addedAt)||!statuses.includes(t.status as Status))throw Error('Ungültiger Datensatz.')
+    if(!(t.id as string)||ids.has(t.id as string))throw Error('Doppelte oder leere Datensatz-ID.')
+    ids.add(t.id as string)
+    records.push(t as Track)
+  }
+  return records
+}
+async function restoreBackup(file:File):Promise<Track[]> {
+  const records=await importBackup(file)
+  const existing=await readAll()
+  const byId=new Map(existing.map(t=>[t.id,t]))
+  for(const track of records)byId.set(track.id,track)
+  if(byId.size>3000)throw Error('Maximal 3000 Datensätze möglich.')
+  for(const track of records)await storeTrack(track)
+  return [...byId.values()]
+}
 const formatBytes=(n:number)=>(n/(1024*1024)).toFixed(1)+' MB'
 function stripName(name:string) {return name.replace(/\.[^.]+$/,'').replace(/[_]+/g,' ').trim()}
 export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>void}) {
@@ -169,6 +197,10 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
         <label className="cursor-pointer px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-semibold">
           {busy?'Importiere…':'Musikdateien einlesen'}
           <input type="file" multiple accept="audio/*,.mp3,.flac,.wav,.aiff,.ogg,.m4a,.aac" disabled={busy} className="sr-only" onChange={e=>{importFiles(e.currentTarget.files).catch(err=>setError(String(err)));e.currentTarget.value=''}} />
+        </label>
+        <label className="cursor-pointer bg-surface-control px-4 py-2 rounded-lg text-sm">
+          JSON-Backup importieren
+          <input type="file" accept=".json,application/json" className="sr-only" disabled={busy} onChange={e=>{const file=e.currentTarget.files?.[0];e.currentTarget.value='';if(!file)return;setBusy(true);setError(null);restoreBackup(file).then(setAll).catch(err=>setError(err instanceof Error?err.message:String(err))).finally(()=>setBusy(false))}} />
         </label>
         <button type="button" onClick={()=>exportBackup(all)} className="bg-surface-control px-4 py-2 rounded-lg text-sm focus-ring">Vollständiges JSON-Backup</button>
         <button type="button" onClick={()=>exportCsv(visible)} className="bg-surface-control px-4 py-2 rounded-lg text-sm focus-ring">CSV exportieren</button>
