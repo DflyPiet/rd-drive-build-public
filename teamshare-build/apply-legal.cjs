@@ -59,6 +59,8 @@ for (const language of langs) {
   const p = 'src/renderer/locales/'+language+'/common.json'
   const dict=JSON.parse(fs.readFileSync(file(p),'utf8'))
   if (!dict.about) throw new Error('Missing translations: '+language)
+  // Removed About-page actions must not leave unreferenced locale keys.
+  for (const key of ['support','supportDesc','source','sourceDesc','security','securityDesc']) delete dict.about[key]
   const isDE=language==='de'
   dict.about.title = isDE ? 'Über Radio Diabolus TeamShare' : 'About Radio Diabolus TeamShare'
   dict.about.intro = isDE ? 'Version, Datenschutz und rechtliche Angaben.' : 'Version, privacy and legal information.'
