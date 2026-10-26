@@ -25,6 +25,11 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Set up Python for icon generation
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Build RD Soundtool portable and installer
         shell: pwsh
         working-directory: radio-diabolus-team-audio
@@ -33,7 +38,7 @@ jobs:
       - name: Upload Windows releases and modified GPL source
         uses: actions/upload-artifact@v4
         with:
-          name: RD_Soundtool_1.1.0_Windows_x64
+          name: RD_Soundtool_1.2.0_Windows_x64
           path: radio-diabolus-team-audio/output/Release/*
           if-no-files-found: error
           retention-days: 30
