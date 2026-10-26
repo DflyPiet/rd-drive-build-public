@@ -1,6 +1,6 @@
-#define MyAppName "Radio Diabolus Team Audio"
-#define MyAppVersion "1.0.0"
-#define MyAppExeName "RadioDiabolus.TeamAudio.exe"
+#define MyAppName "RD Soundtool"
+#define MyAppVersion "1.1.0"
+#define MyAppExeName "RD.Soundtool.exe"
 
 [Setup]
 AppId={{A74729BE-4C86-45B2-92E0-F29981D39F43}
@@ -9,11 +9,11 @@ AppVersion={#MyAppVersion}
 AppPublisher=Radio Diabolus
 AppPublisherURL=https://radio-diabolus.dk/site/
 AppSupportURL=https://radio-diabolus.dk/site/
-DefaultDirName={autopf}\Radio Diabolus Team Audio
+DefaultDirName={autopf}\Radio Diabolus\RD Soundtool
 DefaultGroupName=Radio Diabolus
 UninstallDisplayIcon={app}\{#MyAppExeName}
 OutputDir=output\Release
-OutputBaseFilename=RadioDiabolus_TeamAudio_Windows_x64_Setup
+OutputBaseFilename=RD_Soundtool_Windows_x64_Setup
 SetupIconFile=output\Portable\RadioDiabolus.ico
 Compression=lzma2
 SolidCompression=yes
@@ -38,8 +38,8 @@ Name: "desktopicon"; Description: "Desktopverknüpfung erstellen"; GroupDescript
 Source: "output\Portable\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\Radio Diabolus Team Audio"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\Radio Diabolus Team Audio"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autoprograms}\RD Soundtool"; Filename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\RD Soundtool"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "Radio Diabolus Team Audio starten"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "RD Soundtool starten"; Flags: nowait postinstall skipifsilent
