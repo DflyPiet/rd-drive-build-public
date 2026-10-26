@@ -6,6 +6,7 @@ using System.Linq;
 using System.Windows.Forms;
 using SoundSwitch.Audio.Manager;
 using SoundSwitch.Audio.Manager.Interop.Enum;
+using SoundSwitch.Framework.Audio;
 using SoundSwitch.Model;
 using SoundSwitch.Properties;
 
