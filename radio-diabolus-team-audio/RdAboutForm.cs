@@ -8,6 +8,12 @@ namespace SoundSwitch.UI.Forms;
 /// <summary>Radio Diabolus branding window. Original author notices remain in LICENSE.txt.</summary>
 public sealed class RdAboutForm : Form
 {
+    private static Bitmap CreateHighResolutionLogo()
+    {
+        using var icon = new Icon(Resources.Switch_SoundWave, new Size(128, 128));
+        return icon.ToBitmap();
+    }
+
     public RdAboutForm()
     {
         Text = "Über RD Soundtool";
@@ -26,10 +32,11 @@ public sealed class RdAboutForm : Form
         {
             Location = new Point(19, 23),
             Size = new Size(90, 90),
-            Image = Resources.Switch_SoundWave.ToBitmap(),
+            Image = CreateHighResolutionLogo(),
             SizeMode = PictureBoxSizeMode.Zoom
         };
         Controls.Add(logo);
+        Disposed += (_, _) => logo.Image?.Dispose();
         Controls.Add(new Label
         {
             Text = "RADIO DIABOLUS",
