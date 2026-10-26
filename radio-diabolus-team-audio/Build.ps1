@@ -29,44 +29,61 @@ function Patch([string]$relative, [string]$old, [string]$replacement) {
 }
 
 $asm = "SoundSwitch/Properties/AssemblyInfo.cs"
-Patch $asm '[assembly: AssemblyTitle("SoundSwitch")]' '[assembly: AssemblyTitle("Radio Diabolus Team Audio")]'
+Patch $asm '[assembly: AssemblyTitle("SoundSwitch")]' '[assembly: AssemblyTitle("RD Soundtool")]'
 Patch $asm '[assembly: AssemblyDescription("Manage the default audio device.")]' '[assembly: AssemblyDescription("Radio Diabolus audio controls based on SoundSwitch.")]'
 Patch $asm '[assembly: AssemblyCompany("SoundSwitch")]' '[assembly: AssemblyCompany("Radio Diabolus")]'
-Patch $asm '[assembly: AssemblyProduct("SoundSwitch")]' '[assembly: AssemblyProduct("Radio Diabolus Team Audio")]'
-Patch "SoundSwitch/SoundSwitch.csproj" "<StartupObject>SoundSwitch.Program</StartupObject>" "<StartupObject>SoundSwitch.Program</StartupObject><AssemblyName>RadioDiabolus.TeamAudio</AssemblyName>"
-Patch $asm '[assembly: AssemblyFileVersion("7.3.3")]' '[assembly: AssemblyFileVersion("1.0.0")]'
-Patch $asm '[assembly: AssemblyInformationalVersion("7.3.3")]' '[assembly: AssemblyInformationalVersion("1.0.0")]'
+Patch $asm '[assembly: AssemblyProduct("SoundSwitch")]' '[assembly: AssemblyProduct("RD Soundtool")]'
+Patch "SoundSwitch/SoundSwitch.csproj" "<StartupObject>SoundSwitch.Program</StartupObject>" "<StartupObject>SoundSwitch.Program</StartupObject><AssemblyName>RD.Soundtool</AssemblyName>"
+Patch $asm '[assembly: AssemblyFileVersion("7.3.3")]' '[assembly: AssemblyFileVersion("1.1.0")]'
+Patch $asm '[assembly: AssemblyInformationalVersion("7.3.3")]' '[assembly: AssemblyInformationalVersion("1.1.0")]'
 Patch "SoundSwitch/Program.cs" 'public static bool SkipUpdate { get; private set; }' 'public static bool SkipUpdate { get; private set; } = true;'
 Patch "SoundSwitch/Program.cs" 'Application.SetColorMode(SystemColorMode.System);' 'Application.SetColorMode(SystemColorMode.Dark);'
 Patch "SoundSwitch/Program.cs" 'private const string SentryDsn = "https://7d52dfb4f6554bf0b58b256337835332@o631137.ingest.sentry.io/5755327";' 'private const string SentryDsn = "";'
-Patch "SoundSwitch.IPC/Pipe/PipeConstants.cs" 'private const string APP_NAME = "SoundSwitch";' 'private const string APP_NAME = "RadioDiabolusTeamAudio";'
+Patch "SoundSwitch.IPC/Pipe/PipeConstants.cs" 'private const string APP_NAME = "SoundSwitch";' 'private const string APP_NAME = "RDSoundtool";'
 Patch "SoundSwitch/Framework/Configuration/SoundSwitchConfiguration.cs" 'public UpdateMode UpdateMode { get; set; } = UpdateMode.Notify;' 'public UpdateMode UpdateMode { get; set; } = UpdateMode.Never;'
 Patch "SoundSwitch/Framework/Configuration/SoundSwitchConfiguration.cs" 'public bool Telemetry { get; set; } = true;' 'public bool Telemetry { get; set; } = false;'
 Patch "SoundSwitch/UI/Component/TrayIcon.cs" '        _settingsMenu.Items.Add(_updateMenuItem);' '        // Team build does not offer upstream updates.'
 $menuAnchor = '        _settingsMenu.Items.Add(TrayIconStrings.settings, ResourceSettingsSmallBitmap,'
-Patch "SoundSwitch/UI/Component/TrayIcon.cs" $menuAnchor ('        _settingsMenu.Items.Add("Radio Diabolus | Team-Center", SoundSwitchLogoIcon.ToBitmap(), (sender, e) => new TeamCenterForm().Show());' + [Environment]::NewLine + $menuAnchor)
+Patch "SoundSwitch/UI/Component/TrayIcon.cs" $menuAnchor ('        _settingsMenu.Items.Add("Radio Diabolus | Soundtool", SoundSwitchLogoIcon.ToBitmap(), (sender, e) => new TeamCenterForm().Show());' + [Environment]::NewLine + $menuAnchor)
 Copy-Item (Join-Path $root "TeamCenterForm.cs") (Join-Path $source "SoundSwitch/UI/Forms/TeamCenterForm.cs")
+# Hide legacy SoundSwitch links and remove the obsolete support notice from Troubleshooting.
+$tray = "SoundSwitch/UI/Component/TrayIcon.cs"
+Patch $tray '(sender, e) => new About().Show());' '(sender, e) => new RdAboutForm().Show());'
+Patch $tray '        _settingsMenu.Items.Add(TrayIconStrings.help, ResourceGitHubHelpBitmap,' '        /* Disabled old SoundSwitch links:
+        _settingsMenu.Items.Add(TrayIconStrings.help, ResourceGitHubHelpBitmap,'
+Patch $tray '            SettingsForm.DonateLink_LinkClicked);' '            SettingsForm.DonateLink_LinkClicked); */'
+Patch "SoundSwitch/UI/Forms/Settings.cs" '        LocalizeForm();' @'
+        LocalizeForm();
+        Icon = Resources.Switch_SoundWave;
+        Text = "RD Soundtool | " + SettingsStrings.settings;
+        appNameLabel.Image = Resources.Switch_SoundWave.ToBitmap();
+        gitHubHelpLinkLabel.Visible = false;
+        discordCommunityLinkLabel.Visible = false;
+        donateLinkLabel.Visible = false;
+        troubleshootingLabel.Visible = false;
+        updateSettingsGroupBox.Enabled = false;
+'@
+Copy-Item (Join-Path $root "RdAboutForm.cs") (Join-Path $source "SoundSwitch/UI/Forms/RdAboutForm.cs")
 
-# Locally render a compact original red-and-black RD application icon.
+
+# Use the supplied artwork. The Base64 file contains a compact original raster of image 4.
 Add-Type -AssemblyName System.Drawing
-$bitmap = [Drawing.Bitmap]::new(64,64)
-$graphics = [Drawing.Graphics]::FromImage($bitmap)
-$graphics.SmoothingMode = [Drawing.Drawing2D.SmoothingMode]::AntiAlias
-$graphics.Clear([Drawing.Color]::FromArgb(17,18,23))
-$red = [Drawing.SolidBrush]::new([Drawing.Color]::FromArgb(219,35,54))
-$white = [Drawing.SolidBrush]::new([Drawing.Color]::White)
-$graphics.FillEllipse($red,3,3,58,58)
-$font = [Drawing.Font]::new("Arial",20,[Drawing.FontStyle]::Bold)
-$graphics.DrawString("RD",$font,$white,8,15)
-$graphics.Dispose(); $font.Dispose(); $red.Dispose(); $white.Dispose()
-$handle = $bitmap.GetHicon()
-$icon = [Drawing.Icon]::FromHandle($handle)
+$logoFile = Join-Path $root "RadioDiabolusIcon.png.base64"
+$logoData = [Convert]::FromBase64String(([IO.File]::ReadAllText($logoFile)).Trim())
+$logoStream = [IO.MemoryStream]::new($logoData)
+$bitmap = [Drawing.Bitmap]::new($logoStream)
+$hicon = $bitmap.GetHicon()
+$icon = [Drawing.Icon]::FromHandle($hicon)
 $ico = Join-Path $source "SoundSwitch/Resources/Switch-SoundWave.ico"
 $fs = [IO.File]::Create($ico)
-try { $icon.Save($fs) } finally { $fs.Dispose(); $icon.Dispose(); $bitmap.Dispose() }
+try { $icon.Save($fs) } finally { $fs.Dispose(); $icon.Dispose(); $bitmap.Dispose(); $logoStream.Dispose() }
+[System.Runtime.InteropServices.Marshal]::GetLastWin32Error() | Out-Null
+# Update all icons shown by the app, including the embedded executable and tray icon.
 foreach ($name in @("program.ico","Blue Icon.ico","AppIcon-Dark.ico","AppIcon-Light.ico")) {
     Copy-Item $ico (Join-Path $source "SoundSwitch/Resources/$name") -Force
 }
+Copy-Item $ico (Join-Path $source "SoundSwitch/Resources/RadioDiabolus.ico") -Force
+[IO.File]::WriteAllBytes((Join-Path $source "SoundSwitch/Resources/RadioDiabolusIcon.png"), $logoData)
 
 Push-Location $source
 try {
@@ -78,20 +95,20 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "CLI publish failed ($LASTEXITCODE)" }
     Get-ChildItem $cli | Copy-Item -Destination $portable -Recurse -Force
 } finally { Pop-Location }
-$exe = Join-Path $portable "RadioDiabolus.TeamAudio.exe"
+$exe = Join-Path $portable "RD.Soundtool.exe"
 if (-not (Test-Path $exe)) { throw "EXE was not produced" }
 Copy-Item (Join-Path $source "LICENSE.txt") (Join-Path $portable "LICENSE.txt")
 Copy-Item $ico (Join-Path $portable "RadioDiabolus.ico") -Force
 @"
-Radio Diabolus Team Audio 1.0.0
+RD Soundtool 1.1.0
 Windows 10/11 x64. Portable distribution.
 Based on SoundSwitch, GPLv3, https://github.com/Belphemur/SoundSwitch
 Original revision: $upstream
 The complete modified source is provided as a separate ZIP archive.
 Audio profiles and configuration are per-user. The installer is unsigned.
 "@ | Set-Content (Join-Path $portable "TEAM_README.txt") -Encoding utf8
-$zip = Join-Path $release "RadioDiabolus_TeamAudio_Windows_x64_Portable.zip"
-$sourcezip = Join-Path $release "RadioDiabolus_TeamAudio_Modified_Source.zip"
+$zip = Join-Path $release "RD_Soundtool_Windows_x64_Portable.zip"
+$sourcezip = Join-Path $release "RD_Soundtool_Modified_Source.zip"
 Compress-Archive -Path (Join-Path $portable "*") -DestinationPath $zip -CompressionLevel Optimal -Force
 Compress-Archive -Path (Join-Path $source "*") -DestinationPath $sourcezip -CompressionLevel Optimal -Force
 
@@ -105,7 +122,7 @@ if (-not $iscc) {
 if (-not $iscc) { throw "Inno Setup ISCC.exe not found" }
 & $iscc (Join-Path $root "Installer.iss")
 if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed ($LASTEXITCODE)" }
-if (-not (Test-Path (Join-Path $release "RadioDiabolus_TeamAudio_Windows_x64_Setup.exe"))) { throw "Setup.exe not produced" }
+if (-not (Test-Path (Join-Path $release "RD_Soundtool_Windows_x64_Setup.exe"))) { throw "Setup.exe not produced" }
 Get-ChildItem $release -File | Sort-Object Name | ForEach-Object {
     $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     "$hash  $($_.Name)"
