@@ -1,0 +1,39 @@
+name: Radio Diabolus Team Audio Windows
+
+on:
+  push:
+    branches:
+      - feature/radio-diabolus-team-audio
+    paths:
+      - "radio-diabolus-team-audio/**"
+      - ".github/workflows/radio-diabolus-team-audio.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out build sources
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build Radio Diabolus portable and installer
+        shell: pwsh
+        working-directory: radio-diabolus-team-audio
+        run: ./Build.ps1
+
+      - name: Upload Windows releases and modified GPL source
+        uses: actions/upload-artifact@v4
+        with:
+          name: RadioDiabolus_TeamAudio_1.0.0_Windows_x64
+          path: radio-diabolus-team-audio/output/Release/*
+          if-no-files-found: error
+          retention-days: 30
