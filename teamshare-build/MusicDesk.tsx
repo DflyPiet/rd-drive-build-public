@@ -204,7 +204,7 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
     </label>
   }
   return <Modal isOpen={isOpen} onClose={onClose} ariaLabel="Radio Diabolus Musikbemusterungen"
-    panelClassName="glass-modal w-full max-w-4xl rounded-2xl p-6 max-h-[86vh] overflow-y-auto">
+    panelClassName="relative z-10 w-full max-w-4xl rounded-2xl border border-surface-outline bg-surface-container-lowest shadow-2xl p-6 max-h-[86vh] overflow-y-auto">
     <div className="space-y-4 text-on-surface">
       <div className="flex items-start justify-between gap-3">
         <div><h2 className="font-headline text-2xl font-bold">Musikbemusterungen & RadioBOSS</h2>
