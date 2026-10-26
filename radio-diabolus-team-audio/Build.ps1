@@ -34,8 +34,8 @@ Patch $asm '[assembly: AssemblyDescription("Manage the default audio device.")]'
 Patch $asm '[assembly: AssemblyCompany("SoundSwitch")]' '[assembly: AssemblyCompany("Radio Diabolus")]'
 Patch $asm '[assembly: AssemblyProduct("SoundSwitch")]' '[assembly: AssemblyProduct("RD Soundtool")]'
 Patch "SoundSwitch/SoundSwitch.csproj" "<StartupObject>SoundSwitch.Program</StartupObject>" "<StartupObject>SoundSwitch.Program</StartupObject><AssemblyName>RD.Soundtool</AssemblyName>"
-Patch $asm '[assembly: AssemblyFileVersion("7.3.3")]' '[assembly: AssemblyFileVersion("1.1.0")]'
-Patch $asm '[assembly: AssemblyInformationalVersion("7.3.3")]' '[assembly: AssemblyInformationalVersion("1.1.0")]'
+Patch $asm '[assembly: AssemblyFileVersion("7.3.3")]' '[assembly: AssemblyFileVersion("1.2.0")]'
+Patch $asm '[assembly: AssemblyInformationalVersion("7.3.3")]' '[assembly: AssemblyInformationalVersion("1.2.0")]'
 Patch "SoundSwitch/Program.cs" 'public static bool SkipUpdate { get; private set; }' 'public static bool SkipUpdate { get; private set; } = true;'
 Patch "SoundSwitch/Program.cs" 'Application.SetColorMode(SystemColorMode.System);' 'Application.SetColorMode(SystemColorMode.Dark);'
 Patch "SoundSwitch/Program.cs" 'private const string SentryDsn = "https://7d52dfb4f6554bf0b58b256337835332@o631137.ingest.sentry.io/5755327";' 'private const string SentryDsn = "";'
@@ -54,36 +54,25 @@ Patch $tray '        _settingsMenu.Items.Add(TrayIconStrings.help, ResourceGitHu
 Patch $tray '            SettingsForm.DonateLink_LinkClicked);' '            SettingsForm.DonateLink_LinkClicked); */'
 Patch "SoundSwitch/UI/Forms/Settings.cs" '        LocalizeForm();' @'
         LocalizeForm();
-        Icon = Resources.Switch_SoundWave;
-        Text = "RD Soundtool | " + SettingsStrings.settings;
-        appNameLabel.Image = Resources.Switch_SoundWave.ToBitmap();
-        gitHubHelpLinkLabel.Visible = false;
-        discordCommunityLinkLabel.Visible = false;
-        donateLinkLabel.Visible = false;
-        troubleshootingLabel.Visible = false;
-        updateSettingsGroupBox.Enabled = false;
+        ApplyRdBranding();
 '@
+Copy-Item (Join-Path $root "Settings.RadioDiabolus.cs") (Join-Path $source "SoundSwitch/UI/Forms/Settings.RadioDiabolus.cs")
 Copy-Item (Join-Path $root "RdAboutForm.cs") (Join-Path $source "SoundSwitch/UI/Forms/RdAboutForm.cs")
 
 
-# Use the supplied artwork. The Base64 file contains a compact original raster of image 4.
-Add-Type -AssemblyName System.Drawing
-$logoFile = Join-Path $root "RadioDiabolusIcon.png.base64"
-$logoData = [Convert]::FromBase64String(([IO.File]::ReadAllText($logoFile)).Trim())
-$logoStream = [IO.MemoryStream]::new($logoData)
-$bitmap = [Drawing.Bitmap]::new($logoStream)
-$hicon = $bitmap.GetHicon()
-$icon = [Drawing.Icon]::FromHandle($hicon)
+# Decode the complete 256px Radio Diabolus artwork and generate real ICO sizes.
+$logoB64 = [IO.File]::ReadAllText((Join-Path $root "RDLogo256.jpg.base64")).Trim()
+$logoBytes = [Convert]::FromBase64String($logoB64)
+$jpgFile = Join-Path $work "RDLogo256.jpg"
+[IO.File]::WriteAllBytes($jpgFile, $logoBytes)
+python -m pip install --disable-pip-version-check --quiet "Pillow==11.3.0"
+if ($LASTEXITCODE -ne 0) { throw "Pillow installation failed" }
+python (Join-Path $root "BuildIcon.py")
+if ($LASTEXITCODE -ne 0) { throw "Multi-resolution ICO creation failed" }
 $ico = Join-Path $source "SoundSwitch/Resources/Switch-SoundWave.ico"
-$fs = [IO.File]::Create($ico)
-try { $icon.Save($fs) } finally { $fs.Dispose(); $icon.Dispose(); $bitmap.Dispose(); $logoStream.Dispose() }
-[System.Runtime.InteropServices.Marshal]::GetLastWin32Error() | Out-Null
-# Update all icons shown by the app, including the embedded executable and tray icon.
 foreach ($name in @("program.ico","Blue Icon.ico","AppIcon-Dark.ico","AppIcon-Light.ico")) {
     Copy-Item $ico (Join-Path $source "SoundSwitch/Resources/$name") -Force
 }
-Copy-Item $ico (Join-Path $source "SoundSwitch/Resources/RadioDiabolus.ico") -Force
-[IO.File]::WriteAllBytes((Join-Path $source "SoundSwitch/Resources/RadioDiabolusIcon.png"), $logoData)
 
 Push-Location $source
 try {
@@ -100,7 +89,7 @@ if (-not (Test-Path $exe)) { throw "EXE was not produced" }
 Copy-Item (Join-Path $source "LICENSE.txt") (Join-Path $portable "LICENSE.txt")
 Copy-Item $ico (Join-Path $portable "RadioDiabolus.ico") -Force
 @"
-RD Soundtool 1.1.0
+RD Soundtool 1.2.0
 Windows 10/11 x64. Portable distribution.
 Based on SoundSwitch, GPLv3, https://github.com/Belphemur/SoundSwitch
 Original revision: $upstream
