@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Globalization;
 using System.Windows.Forms;
 using SoundSwitch.Properties;
+using SoundSwitch.Localization;
 
 namespace SoundSwitch.UI.Forms;
 
