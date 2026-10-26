@@ -29,7 +29,7 @@ public sealed class TeamCenterForm : Form
 
     public TeamCenterForm()
     {
-        Text = "Radio Diabolus | Team Audio Control";
+        Text = "RD Soundtool | Radio Diabolus";
         Icon = Resources.Switch_SoundWave;
         BackColor = Background;
         ForeColor = Foreground;
@@ -90,7 +90,7 @@ public sealed class TeamCenterForm : Form
     {
         var header = new Panel { Dock = DockStyle.Fill };
         header.Controls.Add(new Label { Text = "RADIO DIABOLUS", Font = new Font("Segoe UI", 23, FontStyle.Bold), ForeColor = Foreground, AutoSize = true, Location = new Point(10, 4) });
-        header.Controls.Add(new Label { Text = "TEAM AUDIO CONTROL  |  SOUNDS LIKE HELL", Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Accent, AutoSize = true, Location = new Point(14, 54) });
+        header.Controls.Add(new Label { Text = "RD SOUNDTOOL  |  SOUNDS LIKE HELL", Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Accent, AutoSize = true, Location = new Point(14, 54) });
         _mute = ActionButton("Mikrofon stumm", true);
         _mute.Size = new Size(190, 43);
         _mute.Location = new Point(600, 17);
