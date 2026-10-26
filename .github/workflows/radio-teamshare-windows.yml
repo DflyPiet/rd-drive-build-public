@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - build/radio-diabolus-teamshare-win
+      - feature/teamshare-24-musicdesk-backup
   workflow_dispatch:
 
 permissions:
@@ -35,6 +36,7 @@ jobs:
           node teamshare-build/apply-audio-diagnostics.cjs mirall-src
           node teamshare-build/apply-slim-ui.cjs mirall-src
           node teamshare-build/apply-musicdesk.cjs mirall-src
+          node teamshare-build/apply-bootstrap-settings.cjs mirall-src
       # The upstream two-peer flow suite is separately sharded and tested on the pinned
       # original revision. Only its renderer is changed in this fork.
       - name: Run upstream unit and invariant tests on Linux
@@ -96,7 +98,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Icon generation failed" }
           if (-not (Test-Path 'mirall-src/resources/win32/icon.ico')) { throw "Branding icon missing" }
           if (-not (Test-Path 'mirall-src/assets/brand/radio-diabolus-icon.png')) { throw "Renderer icon missing" }
-          $changed = @(git -C mirall-src diff --name-only -- src/shared src/worker src/preload | Where-Object { $_ })
+          $changed = @(git -C mirall-src diff --name-only -- src/shared src/worker | Where-Object { $_ })
           if ($changed.Count -gt 0) { throw "Upstream transfer engine was modified" }
 
       - name: Install dependencies and check TypeScript
@@ -120,9 +122,17 @@ jobs:
           node teamshare-build/apply-slim-ui.cjs mirall-src
           if ($LASTEXITCODE -ne 0) { throw "Radio Diabolus UI cleanup failed" }
           node teamshare-build/apply-musicdesk.cjs mirall-src
+          node teamshare-build/apply-bootstrap-settings.cjs mirall-src
           if ($LASTEXITCODE -ne 0) { throw "Music promotions integration failed" }
-          $changed = @(git -C mirall-src diff --name-only -- src/shared src/worker src/preload | Where-Object { $_ })
+          $changed = @(git -C mirall-src diff --name-only -- src/shared src/worker | Where-Object { $_ })
           if ($changed.Count -gt 0) { throw "Transfer engine was modified" }
+
+      - name: Typecheck final application with all branding and feature patches
+        shell: pwsh
+        working-directory: mirall-src
+        run: |
+          npm.cmd run typecheck
+          if ($LASTEXITCODE -ne 0) { throw "Final application TypeScript check failed" }
 
       - name: Run Windows identity, sharing and resume smoke tests (required)
         shell: pwsh

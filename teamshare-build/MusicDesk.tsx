@@ -1,6 +1,6 @@
 // Local-first Radio Diabolus music promotions desk.
 // Records are local IndexedDB metadata; no P2P transfer or server sync is claimed.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Modal from '../primitives/Modal.js'
 type Status = 'Neu' | 'In Prüfung' | 'Freigegeben' | 'Erledigt'
 type Track = {
@@ -10,6 +10,14 @@ type Track = {
 }
 const statuses: Status[] = ['Neu', 'In Prüfung', 'Freigegeben', 'Erledigt']
 const AUDIO=/\.(mp3|flac|wav|aiff?|ogg|m4a|aac)$/i
+// Read legacy ID3v1 metadata without loading an entire audio file into memory.
+async function readId3v1(file:File):Promise<{title:string;artist:string;album:string}|null> {
+  if(!/\.mp3$/i.test(file.name)||file.size<128)return null
+  const tail=new Uint8Array(await file.slice(file.size-128).arrayBuffer())
+  if(String.fromCharCode(...tail.slice(0,3))!=='TAG')return null
+  const decode=(start:number,length:number)=>new TextDecoder('windows-1252').decode(tail.slice(start,start+length)).replace(/\0/g,'').trim()
+  return {title:decode(3,30),artist:decode(33,30),album:decode(63,30)}
+}
 const dbName='rd-teamshare-musicdesk-v1'
 const storeName='bemusterungen'
 function openDB(): Promise<IDBDatabase> {
@@ -86,6 +94,39 @@ function exportM3u(tracks:Track[]) {
   const content=['#EXTM3U',...valid.flatMap(t=>['#EXTINF:-1,'+clean((t.artist ? t.artist+' - ':'')+t.title),clean(t.path)])].join('\r\n')+'\r\n'
   downloadText('\uFEFF'+content,'Radio-Diabolus-RadioBOSS-Playlist.m3u8','audio/x-mpegurl;charset=utf-8')
 }
+function exportBackup(tracks:Track[]) {
+  // JSON preserves all fields, unlike the reduced CSV export.
+  const payload={format:'radio-diabolus-teamshare-musicdesk',schemaVersion:1,exportedAt:new Date().toISOString(),tracks}
+  downloadText(JSON.stringify(payload,null,2),'Radio-Diabolus-Bemusterungen-Backup.json','application/json;charset=utf-8')
+}
+async function importBackup(file:File):Promise<Track[]> {
+  if(file.size>8*1024*1024)throw Error('Backup ist zu groß (maximal 8 MB).')
+  const data:unknown=JSON.parse(await file.text())
+  if(!data||typeof data!=='object')throw Error('Ungültiges Backup.')
+  const v=data as {format?:unknown;schemaVersion?:unknown;tracks?:unknown}
+  if(v.format!=='radio-diabolus-teamshare-musicdesk'||v.schemaVersion!==1||!Array.isArray(v.tracks)||v.tracks.length>3000)throw Error('Unbekanntes oder beschädigtes Backup.')
+  const keys=['id','title','artist','album','label','releaseDate','status','path','fileName','notes']
+  const ids=new Set<string>()
+  const records:Track[]=[]
+  for(const item of v.tracks){
+    if(!item||typeof item!=='object')throw Error('Ungültiger Datensatz.')
+    const t=item as Record<string,unknown>
+    if(keys.some(k=>typeof t[k]!=='string'||(t[k] as string).length>10000)||typeof t.fileSize!=='number'||!Number.isFinite(t.fileSize)||t.fileSize<0||typeof t.addedAt!=='number'||!Number.isFinite(t.addedAt)||!statuses.includes(t.status as Status))throw Error('Ungültiger Datensatz.')
+    if(!(t.id as string)||ids.has(t.id as string))throw Error('Doppelte oder leere Datensatz-ID.')
+    ids.add(t.id as string)
+    records.push(t as unknown as Track)
+  }
+  return records
+}
+async function restoreBackup(file:File):Promise<Track[]> {
+  const records=await importBackup(file)
+  const existing=await readAll()
+  const byId=new Map(existing.map(t=>[t.id,t]))
+  for(const track of records)byId.set(track.id,track)
+  if(byId.size>3000)throw Error('Maximal 3000 Datensätze möglich.')
+  for(const track of records)await storeTrack(track)
+  return [...byId.values()]
+}
 const formatBytes=(n:number)=>(n/(1024*1024)).toFixed(1)+' MB'
 function stripName(name:string) {return name.replace(/\.[^.]+$/,'').replace(/[_]+/g,' ').trim()}
 export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>void}) {
@@ -95,6 +136,16 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
   const [error,setError]=useState<string|null>(null)
   const [selected,setSelected]=useState<string|null>(null)
   const [busy,setBusy]=useState(false)
+  const sessionFiles=useRef(new Map<string,File>())
+  const [playUrl,setPlayUrl]=useState<string|null>(null)
+  const [playingName,setPlayingName]=useState('')
+  useEffect(()=>()=>{if(playUrl)URL.revokeObjectURL(playUrl)},[playUrl])
+  function playTrack(track:Track){
+    const file=sessionFiles.current.get(track.id)
+    if(!file){setError('Die Datei ist nicht mehr lokal ausgewählt. Bitte die Audiodatei erneut importieren, um sie hier abzuspielen.');return}
+    const url=URL.createObjectURL(file)
+    setPlayUrl(url);setPlayingName(track.fileName);setError(null)
+  }
   useEffect(()=>{
     if(!isOpen)return
     let active=true
@@ -125,8 +176,9 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
         known.add(key)
         const name=stripName(f.name)
         const parts=name.split(' - ')
-        const t:Track={id:crypto.randomUUID(),artist:parts.length>1?parts[0].trim():'',title:parts.length>1?parts.slice(1).join(' - ').trim():name,album:'',label:'',releaseDate:'',status:'Neu',path,fileName:f.name,fileSize:f.size,notes:'',addedAt:Date.now()+added}
-        await storeTrack(t);current.push(t);added++
+        const tags=await readId3v1(f).catch(()=>null)
+        const t:Track={id:crypto.randomUUID(),artist:tags?.artist|| (parts.length>1?parts[0].trim():''),title:tags?.title||(parts.length>1?parts.slice(1).join(' - ').trim():name),album:tags?.album||'',label:'',releaseDate:'',status:'Neu',path,fileName:f.name,fileSize:f.size,notes:'',addedAt:Date.now()+added}
+        await storeTrack(t);sessionFiles.current.set(t.id,f);current.push(t);added++
       }
       setAll(current)
       if(added===0)setError('Die ausgewählten Dateien sind bereits in der lokalen Bibliothek.')
@@ -152,7 +204,7 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
     </label>
   }
   return <Modal isOpen={isOpen} onClose={onClose} ariaLabel="Radio Diabolus Musikbemusterungen"
-    panelClassName="glass-modal w-full max-w-4xl rounded-2xl p-6 max-h-[86vh] overflow-y-auto">
+    panelClassName="relative z-10 w-full max-w-4xl rounded-2xl border border-surface-outline bg-surface-container-lowest shadow-2xl p-6 max-h-[86vh] overflow-y-auto">
     <div className="space-y-4 text-on-surface">
       <div className="flex items-start justify-between gap-3">
         <div><h2 className="font-headline text-2xl font-bold">Musikbemusterungen & RadioBOSS</h2>
@@ -165,10 +217,16 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
           {busy?'Importiere…':'Musikdateien einlesen'}
           <input type="file" multiple accept="audio/*,.mp3,.flac,.wav,.aiff,.ogg,.m4a,.aac" disabled={busy} className="sr-only" onChange={e=>{importFiles(e.currentTarget.files).catch(err=>setError(String(err)));e.currentTarget.value=''}} />
         </label>
+        <label className="cursor-pointer bg-surface-control px-4 py-2 rounded-lg text-sm">
+          JSON-Backup importieren
+          <input type="file" accept=".json,application/json" className="sr-only" disabled={busy} onChange={e=>{const file=e.currentTarget.files?.[0];e.currentTarget.value='';if(!file)return;setBusy(true);setError(null);restoreBackup(file).then(setAll).catch(err=>setError(err instanceof Error?err.message:String(err))).finally(()=>setBusy(false))}} />
+        </label>
+        <button type="button" onClick={()=>exportBackup(all)} className="bg-surface-control px-4 py-2 rounded-lg text-sm focus-ring">Vollständiges JSON-Backup</button>
         <button type="button" onClick={()=>exportCsv(visible)} className="bg-surface-control px-4 py-2 rounded-lg text-sm focus-ring">CSV exportieren</button>
         <button type="button" onClick={m3u} className="bg-surface-control px-4 py-2 rounded-lg text-sm focus-ring">RadioBOSS-M3U8 exportieren</button>
       </div>
       <p className="text-xs text-on-surface-variant">Der RadioBOSS-Export enthält freigegebene Dateien mit lokalem Windows-Pfad. Playlist in RadioBOSS importieren. Dateien dürfen danach nicht verschoben werden.</p>
+      {playUrl&&<div className="rounded-xl bg-surface-container-low p-3 space-y-2"><p className="text-sm font-semibold">Wiedergabe: {playingName}</p><audio key={playUrl} src={playUrl} autoPlay controls className="w-full" onError={()=>setError('Audiocodec oder Datei konnte nicht gelesen werden.')}><track kind="captions" src="data:text/vtt,WEBVTT" srcLang="de" label="Keine Untertitel verfügbar" /></audio><button type="button" className="bg-surface-control rounded-lg px-3 py-2 text-sm" onClick={()=>setPlayUrl(null)}>Player schließen</button></div>}
       {error&&<p role="alert" className="rounded-lg bg-error-container p-3 text-on-error-container text-sm">{error}</p>}
       <div className="flex flex-wrap gap-3">
         <input value={search} onChange={e=>setSearch(e.currentTarget.value)} aria-label="Musik durchsuchen" placeholder="Suche Interpret, Titel, Label…" className="bg-surface-control rounded-lg p-2 flex-1 min-w-40 text-sm focus-ring"/>
@@ -180,7 +238,7 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div className="max-h-96 overflow-y-auto space-y-2">
           {visible.slice(0,250).map(t=><div key={t.id} className="rounded-lg bg-surface-container-low p-3 flex items-center gap-3">
-            <button type="button" onClick={()=>setSelected(t.id)} aria-pressed={selected===t.id} className="flex-1 text-left min-w-0 focus-ring rounded">
+            <button type="button" onClick={()=>setSelected(t.id)} onDoubleClick={()=>playTrack(t)} title="Doppelklick: Audio abspielen, sofern lokal ausgewählt" aria-pressed={selected===t.id} className="flex-1 text-left min-w-0 focus-ring rounded">
               <p className="text-sm font-semibold truncate">{t.artist? t.artist+' · ':''}{t.title}</p>
               <p className="text-xs text-on-surface-variant truncate">{t.label||'Ohne Label'} · {formatBytes(t.fileSize)}</p>
             </button>
@@ -191,6 +249,7 @@ export default function MusicDesk({isOpen,onClose}:{isOpen:boolean;onClose:()=>v
         <div className="bg-surface-container-low rounded-xl p-4 space-y-3">
           {selectedTrack? <>
             <p className="font-semibold">Details bearbeiten</p>
+            <button type="button" className="rounded-lg bg-surface-control px-3 py-2 text-sm focus-ring" onClick={()=>playTrack(selectedTrack)}>Audio abspielen</button>
             <div className="grid grid-cols-2 gap-3">
               {field('Interpret','artist')}{field('Titel','title')}{field('Album','album')}{field('Label','label')}
             </div>
